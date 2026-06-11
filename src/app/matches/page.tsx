@@ -68,14 +68,14 @@ function getMatchStatus(match: Match): { isLive: boolean; isFinished: boolean; l
         label: match.live.timeElapsed && match.live.timeElapsed !== 'notstarted' ? match.live.timeElapsed : 'LIVE' 
       }
     }
+    // Has live data but not started yet
+    if (match.live.timeElapsed === 'notstarted') {
+      return { isLive: false, isFinished: false, label: '' }
+    }
   }
   
   // Fallback to our DB result
   if (match.result) return { isLive: false, isFinished: true, label: 'Full Time' }
-  
-  const matchDate = parseMatchDate(match.date)
-  const now = new Date()
-  if (matchDate < now) return { isLive: true, isFinished: false, label: 'LIVE' }
   
   return { isLive: false, isFinished: false, label: '' }
 }

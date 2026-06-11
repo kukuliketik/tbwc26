@@ -149,15 +149,14 @@ function getMatchStatus(match: MatchDetail): { label: string; color: string; isL
         isLive: true 
       }
     }
+    // Has live data but not started yet
+    if (live.timeElapsed === 'notstarted') {
+      return { label: 'Scheduled', color: 'bg-wc-gold', isLive: false }
+    }
   }
   
   // Fallback to our DB result
   if (match.result) return { label: 'Full Time', color: 'bg-gray-500', isLive: false }
-  
-  const matchDate = new Date(match.date)
-  if (matchDate.getTime() - ONE_HOUR_MS < Date.now()) {
-    return { label: 'Live', color: 'bg-red-500', isLive: true }
-  }
   
   return { label: 'Scheduled', color: 'bg-wc-gold', isLive: false }
 }
