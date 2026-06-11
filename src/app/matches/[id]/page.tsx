@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
 import { useSession } from 'next-auth/react'
 import { getFlag, getRoundColor, getRoundIcon } from '@/lib/flags'
+import { parseWC26Date } from '@/lib/worldcup26-api'
 import PredictionSelector from '@/components/PredictionSelector'
 import Avatar from '@/components/Avatar'
 import CountdownTimer from '@/components/CountdownTimer'
@@ -245,7 +246,10 @@ export default function MatchDetailPage() {
 
   if (!match) return null
 
-  const matchDate = new Date(match.date)
+  // Prefer worldcup26.ir localDate (Iran time + 2h30m = WIB) over DB date
+  const matchDate = match.live?.localDate
+    ? parseWC26Date(match.live.localDate)
+    : new Date(match.date)
   const matchWIB = toZonedTime(matchDate, WIB)
   const now = new Date()
   const isLocked = matchDate.getTime() - ONE_HOUR_MS < now.getTime()

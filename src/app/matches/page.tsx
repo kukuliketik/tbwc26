@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
 import { getFlag, getRoundColor, getRoundIcon } from '@/lib/flags'
+import { parseWC26Date } from '@/lib/worldcup26-api'
 import CountdownTimer from '@/components/CountdownTimer'
 
 interface LiveGameData {
@@ -188,7 +189,10 @@ export default function MatchesPage() {
                 </div>
                 <div className="space-y-3">
                   {dateMatches.map((match) => {
-                    const matchDate = parseMatchDate(match.date)
+                    // Prefer worldcup26.ir localDate (Iran time + 2h30m = WIB) over DB date
+                    const matchDate = match.live?.localDate
+                      ? parseWC26Date(match.live.localDate)
+                      : parseMatchDate(match.date)
                     const matchWIB = toZonedTime(matchDate, WIB)
                     const winner = match.result === 'Team A' ? match.teamA : match.result === 'Team B' ? match.teamB : null
                     const winnerFlag = match.result === 'Team A' ? getFlag(match.teamA) : match.result === 'Team B' ? getFlag(match.teamB) : null

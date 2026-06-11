@@ -82,11 +82,16 @@ export async function getAllStadiums(): Promise<WC26Stadium[]> {
 }
 
 export function parseWC26Date(localDate: string): Date {
-  // Format: "06/11/2026 13:00" (MM/DD/YYYY HH:mm) — this is local time at venue
+  // Format: "06/11/2026 13:00" (MM/DD/YYYY HH:mm) — Iran time (IRDT UTC+4:30 in summer)
+  // Convert to WIB (UTC+7) by adding 2h30m
   const [datePart, timePart] = localDate.split(' ')
   const [month, day, year] = datePart.split('/').map(Number)
   const [hours, minutes] = timePart.split(':').map(Number)
-  return new Date(Date.UTC(year, month - 1, day, hours, minutes, 0))
+  // Iran time + 2h30m = WIB
+  const totalMinutes = hours * 60 + minutes + 2 * 60 + 30
+  const wibHours = Math.floor(totalMinutes / 60)
+  const wibMinutes = totalMinutes % 60
+  return new Date(Date.UTC(year, month - 1, day, wibHours, wibMinutes, 0))
 }
 
 export function isLive(game: WC26Game): boolean {
