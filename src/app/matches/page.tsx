@@ -14,6 +14,7 @@ interface LiveGameData {
   isFinished: boolean
   timeElapsed: string
   finished: string
+  localDate?: string
 }
 
 interface Match {
