@@ -278,8 +278,8 @@ export default function MatchesPage() {
                                   </div>
                                   <div className="flex items-center gap-1.5">
                                     <span className="w-2 h-2 bg-red-500 rounded-full live-pulse" />
-                                    <span className="text-[10px] font-bold text-red-600 dark:text-red-400">
-                                      {status.label}
+                                    <span className="text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400">
+                                      Live {live?.timeElapsed && live.timeElapsed !== 'notstarted' ? `· ${live.timeElapsed}` : ''}
                                     </span>
                                   </div>
                                 </div>
