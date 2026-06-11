@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getGameById, parseScorers, isLive, isFinished, getHomeScore, getAwayScore, WC26Game } from '@/lib/worldcup26-api'
+import { getAllGames, parseScorers, isLive, isFinished, getHomeScore, getAwayScore, WC26Game } from '@/lib/worldcup26-api'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -27,10 +27,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Match not found' }, { status: 404 })
   }
 
-  // Fetch live data from worldcup26.ir
+  // Fetch live data from worldcup26.ir using getAllGames (no auth required)
   let liveGame: WC26Game | null = null
   try {
-    liveGame = await getGameById(matchId)
+    const allGames = await getAllGames()
+    liveGame = allGames.find(g => g.id === matchId.toString()) ?? null
   } catch {
     // If worldcup26.ir is down, just return our DB data
   }
