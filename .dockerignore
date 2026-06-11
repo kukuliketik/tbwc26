@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+*.db
+*.db-journal
+.env
+.env.local
+BUILD_INSTRUCTION.md
+PROMPT.md
