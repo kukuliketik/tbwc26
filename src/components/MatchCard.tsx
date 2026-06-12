@@ -42,7 +42,7 @@ interface Props {
 export default function MatchCard({ match, userPick, saving, onPick }: Props) {
   const matchDate = match.live?.localDate
     ? parseWC26Date(match.live.localDate, match.live.stadiumId)
-    : typeof match.date === 'string' ? new Date(match.date) : match.date instanceof Date ? match.date : new Date(match.date)
+    : new Date(match.date)
   const matchWIB = toZonedTime(matchDate, WIB)
   const now = new Date()
   const ONE_HOUR_MS = 60 * 60 * 1000
