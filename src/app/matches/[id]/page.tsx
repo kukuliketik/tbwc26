@@ -402,22 +402,36 @@ export default function MatchDetailPage() {
         {/* Match Scorers */}
         {live && (live.homeScorers.length > 0 || live.awayScorers.length > 0) && (
           <div className="px-5 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">
               {isLiveMatch ? 'Live Goals' : 'Goal Scorers'}
             </div>
-            <div className="space-y-1">
-              {live.homeScorers.map((scorer, idx) => (
-                <div key={`home-${idx}`} className="flex items-center gap-2 text-xs">
-                  <span className="text-emerald-600 dark:text-emerald-400">⚽</span>
-                  <span className="text-gray-700 dark:text-gray-300 font-medium">{scorer}</span>
-                </div>
-              ))}
-              {live.awayScorers.map((scorer, idx) => (
-                <div key={`away-${idx}`} className="flex items-center gap-2 text-xs">
-                  <span className="text-emerald-600 dark:text-emerald-400">⚽</span>
-                  <span className="text-gray-700 dark:text-gray-300 font-medium">{scorer}</span>
-                </div>
-              ))}
+            <div className="flex gap-4">
+              {/* Home scorers */}
+              <div className="flex-1 space-y-1.5">
+                {live.homeScorers.length > 0 ? (
+                  live.homeScorers.map((scorer, idx) => (
+                    <div key={`home-${idx}`} className="flex items-center gap-2 text-xs">
+                      <span className="text-emerald-600 dark:text-emerald-400">⚽</span>
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">{scorer}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-xs text-gray-400">—</div>
+                )}
+              </div>
+              {/* Away scorers */}
+              <div className="flex-1 space-y-1.5">
+                {live.awayScorers.length > 0 ? (
+                  live.awayScorers.map((scorer, idx) => (
+                    <div key={`away-${idx}`} className="flex items-center gap-2 text-xs">
+                      <span className="text-emerald-600 dark:text-emerald-400">⚽</span>
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">{scorer}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-xs text-gray-400">—</div>
+                )}
+              </div>
             </div>
           </div>
         )}
