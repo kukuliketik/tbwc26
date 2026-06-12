@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAllGames, parseScorers, isLive, isFinished, getHomeScore, getAwayScore, STADIUM_INFO, WC26Game } from '@/lib/worldcup26-api'
+import { getAllGames, parseScorers, sortScorersByTeam, isLive, isFinished, getHomeScore, getAwayScore, STADIUM_INFO, WC26Game } from '@/lib/worldcup26-api'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -36,23 +36,30 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     // If worldcup26.ir is down, just return our DB data
   }
 
-  // Merge live data with our DB data, override teams from worldcup26.ir
+    // Merge live data with our DB data, override teams from worldcup26.ir
+  const homeTeam = liveGame?.home_team_name_en || match.teamA
+  const awayTeam = liveGame?.away_team_name_en || match.teamB
+
+  const rawHomeScorers = liveGame ? parseScorers(liveGame.home_scorers) : []
+  const rawAwayScorers = liveGame ? parseScorers(liveGame.away_scorers) : []
+  const sortedScorers = sortScorersByTeam(rawHomeScorers, rawAwayScorers, homeTeam, awayTeam)
+
   const response = {
     id: match.id,
     date: match.date,
     round: match.round,
     group: liveGame?.group || match.group,
     stage: match.stage,
-    teamA: liveGame?.home_team_name_en || match.teamA,
-    teamB: liveGame?.away_team_name_en || match.teamB,
+    teamA: homeTeam,
+    teamB: awayTeam,
     result: match.result,
     predictions: match.predictions,
     // Live data from worldcup26.ir
     live: liveGame ? {
       homeScore: getHomeScore(liveGame),
       awayScore: getAwayScore(liveGame),
-      homeScorers: parseScorers(liveGame.home_scorers),
-      awayScorers: parseScorers(liveGame.away_scorers),
+      homeScorers: sortedScorers.homeScorers,
+      awayScorers: sortedScorers.awayScorers,
       isLive: isLive(liveGame),
       isFinished: isFinished(liveGame),
       timeElapsed: liveGame.time_elapsed,

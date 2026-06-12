@@ -410,14 +410,12 @@ export default function MatchDetailPage() {
                 <div key={`home-${idx}`} className="flex items-center gap-2 text-xs">
                   <span className="text-emerald-600 dark:text-emerald-400">⚽</span>
                   <span className="text-gray-700 dark:text-gray-300 font-medium">{scorer}</span>
-                  <span className="text-gray-400 text-[10px]">{match.teamA}</span>
                 </div>
               ))}
               {live.awayScorers.map((scorer, idx) => (
                 <div key={`away-${idx}`} className="flex items-center gap-2 text-xs">
                   <span className="text-emerald-600 dark:text-emerald-400">⚽</span>
                   <span className="text-gray-700 dark:text-gray-300 font-medium">{scorer}</span>
-                  <span className="text-gray-400 text-[10px]">{match.teamB}</span>
                 </div>
               ))}
             </div>

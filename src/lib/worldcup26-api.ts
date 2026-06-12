@@ -178,3 +178,37 @@ export function parseScorers(scorersStr: string): string[] {
     return [scorersStr]
   }
 }
+
+export function sortScorersByTeam(
+  homeScorers: string[],
+  awayScorers: string[],
+  homeTeam: string,
+  awayTeam: string,
+): { homeScorers: string[]; awayScorers: string[] } {
+  const allRaw = [...homeScorers, ...awayScorers]
+  if (allRaw.length === 0) return { homeScorers: [], awayScorers: [] }
+
+  const sorted = { homeScorers: [] as string[], awayScorers: [] as string[] }
+
+  for (const raw of allRaw) {
+    const lowerRaw = raw.toLowerCase()
+    const lowerHome = homeTeam.toLowerCase()
+    const lowerAway = awayTeam.toLowerCase()
+
+    let cleaned = raw
+      .replace(new RegExp(`\\b${homeTeam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), '')
+      .replace(new RegExp(`\\b${awayTeam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), '')
+      .replace(/\d+['′]?\s*$/, '')
+      .trim()
+
+    if (lowerRaw.includes(lowerAway) && !lowerRaw.includes(lowerHome)) {
+      sorted.awayScorers.push(cleaned)
+    } else if (lowerRaw.includes(lowerHome) && !lowerRaw.includes(lowerAway)) {
+      sorted.homeScorers.push(cleaned)
+    } else {
+      sorted.homeScorers.push(cleaned)
+    }
+  }
+
+  return sorted
+}
