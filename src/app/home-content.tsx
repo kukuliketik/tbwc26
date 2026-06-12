@@ -4,8 +4,24 @@ import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
 import { getFlag } from '@/lib/flags'
+import { parseWC26Date } from '@/lib/worldcup26-api'
+
+const WIB = 'Asia/Jakarta'
+
+interface LiveGameData {
+  homeScore: number
+  awayScore: number
+  isLive: boolean
+  isFinished: boolean
+  timeElapsed: string
+  finished: string
+  localDate?: string
+  stadiumId?: string
+  stadium?: { name: string; city: string; country: string } | null
+}
 
 interface Match {
   id: number
@@ -14,6 +30,7 @@ interface Match {
   teamB: string
   group: string | null
   round: string
+  live?: LiveGameData | null
 }
 
 export default function HomeContent() {
@@ -122,7 +139,9 @@ export default function HomeContent() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {upcoming.map((m) => {
-              const d = typeof m.date === 'string' ? parseISO(m.date) : new Date(m.date)
+              const d = m.live?.localDate
+                ? toZonedTime(parseWC26Date(m.live.localDate, m.live.stadiumId), WIB)
+                : toZonedTime(new Date(m.date), WIB)
               return (
                 <div
                   key={m.id}

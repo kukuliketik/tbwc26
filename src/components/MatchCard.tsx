@@ -1,9 +1,24 @@
 'use client'
 
 import Link from 'next/link'
-import { format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
 import PredictionSelector from './PredictionSelector'
 import { getFlag, getRoundColor, getRoundIcon } from '@/lib/flags'
+import { parseWC26Date } from '@/lib/worldcup26-api'
+
+const WIB = 'Asia/Jakarta'
+
+interface LiveGameData {
+  homeScore: number
+  awayScore: number
+  isLive: boolean
+  isFinished: boolean
+  timeElapsed: string
+  finished: string
+  localDate?: string
+  stadiumId?: string
+}
 
 interface Match {
   id: number
@@ -14,6 +29,7 @@ interface Match {
   teamA: string
   teamB: string
   result: string | null
+  live?: LiveGameData | null
 }
 
 interface Props {
@@ -24,7 +40,10 @@ interface Props {
 }
 
 export default function MatchCard({ match, userPick, saving, onPick }: Props) {
-  const matchDate = typeof match.date === 'string' ? parseISO(match.date) : new Date(match.date)
+  const matchDate = match.live?.localDate
+    ? parseWC26Date(match.live.localDate, match.live.stadiumId)
+    : typeof match.date === 'string' ? new Date(match.date) : match.date instanceof Date ? match.date : new Date(match.date)
+  const matchWIB = toZonedTime(matchDate, WIB)
   const now = new Date()
   const ONE_HOUR_MS = 60 * 60 * 1000
   const isLocked = matchDate.getTime() - ONE_HOUR_MS < now.getTime()
@@ -33,8 +52,8 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
 
   const winnerFlag = match.result === 'Team A' ? getFlag(match.teamA) : match.result === 'Team B' ? getFlag(match.teamB) : null
   const winnerName = match.result === 'Team A' ? match.teamA : match.result === 'Team B' ? match.teamB : 'Draw'
-  const matchDay = format(matchDate, 'EEE, MMM d')
-  const matchTime = format(matchDate, 'HH:mm')
+  const matchDay = format(matchWIB, 'EEE, MMM d')
+  const matchTime = format(matchWIB, 'HH:mm')
 
   const flagA = getFlag(match.teamA)
   const flagB = getFlag(match.teamB)

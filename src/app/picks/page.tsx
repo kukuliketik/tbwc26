@@ -6,6 +6,18 @@ import { redirect } from 'next/navigation'
 import MatchCard from '@/components/MatchCard'
 import { useToast } from '@/components/Toast'
 import { getRoundColor } from '@/lib/flags'
+import { parseWC26Date } from '@/lib/worldcup26-api'
+
+interface LiveGameData {
+  homeScore: number
+  awayScore: number
+  isLive: boolean
+  isFinished: boolean
+  timeElapsed: string
+  finished: string
+  localDate?: string
+  stadiumId?: string
+}
 
 interface Match {
   id: number
@@ -16,6 +28,7 @@ interface Match {
   teamA: string
   teamB: string
   result: string | null
+  live?: LiveGameData | null
 }
 
 const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
@@ -63,7 +76,9 @@ export default function PicksPage() {
   const handlePick = useCallback(async (matchId: number, pick: string) => {
     const match = matches.find((m) => m.id === matchId)
     if (match) {
-      const matchDate = new Date(match.date)
+      const matchDate = match.live?.localDate
+        ? parseWC26Date(match.live.localDate, match.live.stadiumId)
+        : new Date(match.date)
       const ONE_HOUR_MS = 60 * 60 * 1000
       if (matchDate.getTime() - ONE_HOUR_MS < Date.now()) {
         addToast('Match is locked — predictions closed 1h before kickoff', 'error')
