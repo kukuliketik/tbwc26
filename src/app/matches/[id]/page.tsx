@@ -423,13 +423,13 @@ export default function MatchDetailPage() {
               <div className="flex-1 space-y-1.5">
                 {live.awayScorers.length > 0 ? (
                   live.awayScorers.map((scorer, idx) => (
-                    <div key={`away-${idx}`} className="flex items-center gap-2 text-xs">
-                      <span className="text-emerald-600 dark:text-emerald-400">⚽</span>
+                    <div key={`away-${idx}`} className="flex items-center justify-end gap-2 text-xs">
                       <span className="text-gray-700 dark:text-gray-300 font-medium">{scorer}</span>
+                      <span className="text-emerald-600 dark:text-emerald-400">⚽</span>
                     </div>
                   ))
                 ) : (
-                  <div className="text-xs text-gray-400">—</div>
+                  <div className="text-xs text-gray-400 text-right">—</div>
                 )}
               </div>
             </div>
