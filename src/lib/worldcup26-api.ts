@@ -64,6 +64,26 @@ const STADIUM_UTC_OFFSET: Record<string, number> = {
   '16': -7,  // Los Angeles (America/Los_Angeles, PDT)
 }
 
+// Stadium ID → { name, city, country }
+export const STADIUM_INFO: Record<string, { name: string; city: string; country: string }> = {
+  '1': { name: 'Estadio Azteca', city: 'Mexico City', country: 'Mexico' },
+  '2': { name: 'Estadio Akron', city: 'Guadalajara', country: 'Mexico' },
+  '3': { name: 'Estadio BBVA', city: 'Monterrey', country: 'Mexico' },
+  '4': { name: 'AT&T Stadium', city: 'Dallas', country: 'USA' },
+  '5': { name: 'NRG Stadium', city: 'Houston', country: 'USA' },
+  '6': { name: 'Arrowhead Stadium', city: 'Kansas City', country: 'USA' },
+  '7': { name: 'Mercedes-Benz Stadium', city: 'Atlanta', country: 'USA' },
+  '8': { name: 'Hard Rock Stadium', city: 'Miami', country: 'USA' },
+  '9': { name: 'Gillette Stadium', city: 'Boston', country: 'USA' },
+  '10': { name: 'Lincoln Financial Field', city: 'Philadelphia', country: 'USA' },
+  '11': { name: 'MetLife Stadium', city: 'New York', country: 'USA' },
+  '12': { name: 'BMO Field', city: 'Toronto', country: 'Canada' },
+  '13': { name: 'BC Place', city: 'Vancouver', country: 'Canada' },
+  '14': { name: 'Lumen Field', city: 'Seattle', country: 'USA' },
+  '15': { name: 'Levi\'s Stadium', city: 'San Francisco', country: 'USA' },
+  '16': { name: 'SoFi Stadium', city: 'Los Angeles', country: 'USA' },
+}
+
 const WIB_OFFSET = 7 // UTC+7
 
 async function fetchWC26<T>(endpoint: string): Promise<T | null> {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAllGames, parseScorers, isLive, isFinished, getHomeScore, getAwayScore, WC26Game } from '@/lib/worldcup26-api'
+import { getAllGames, parseScorers, isLive, isFinished, getHomeScore, getAwayScore, STADIUM_INFO, WC26Game } from '@/lib/worldcup26-api'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -59,6 +59,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       stadium: liveGame.stadium_id,
       localDate: liveGame.local_date,
       stadiumId: liveGame.stadium_id,
+      stadiumInfo: STADIUM_INFO[liveGame.stadium_id] ?? null,
       finished: liveGame.finished,
     } : null,
   }

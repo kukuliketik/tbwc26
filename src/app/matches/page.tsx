@@ -17,6 +17,7 @@ interface LiveGameData {
   finished: string
   localDate?: string
   stadiumId?: string
+  stadium?: { name: string; city: string; country: string } | null
 }
 
 interface Match {
@@ -296,10 +297,17 @@ export default function MatchesPage() {
                                   <span className="text-xs font-black text-gray-300 dark:text-gray-600">VS</span>
                                 </div>
                               )}
-                              {/* Round badge */}
-                              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${getRoundColor(match.round)}`}>
-                                {getRoundIcon(match.round)} {match.stage}
-                              </span>
+                              {/* Round badge + Stadium */}
+                              <div className="flex flex-col items-center gap-1 mt-2">
+                                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${getRoundColor(match.round)}`}>
+                                  {getRoundIcon(match.round)} {match.stage}
+                                </span>
+                                {live?.stadium && (
+                                  <span className="text-[9px] text-gray-400 dark:text-gray-500 text-center leading-tight">
+                                    {live.stadium.name}<br/>{live.stadium.city}, {live.stadium.country}
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
                             {/* Team B */}
