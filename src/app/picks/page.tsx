@@ -125,9 +125,11 @@ export default function PicksPage() {
     )
   }
 
-  const filtered = matches.filter((m) =>
-    activeTab === 'groups' ? m.group === activeGroup : m.round === activeRound
-  )
+  const filtered = matches
+    .filter((m) =>
+      activeTab === 'groups' ? m.group === activeGroup : m.round === activeRound
+    )
+    .sort((a, b) => a.id - b.id)
 
   const groupStageCount = matches.filter((m) => m.round === 'Group Stage').length
   const knockoutCount = matches.filter((m) => m.round !== 'Group Stage').length
