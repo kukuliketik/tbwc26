@@ -58,6 +58,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       timeElapsed: liveGame.time_elapsed,
       stadium: liveGame.stadium_id,
       localDate: liveGame.local_date,
+      stadiumId: liveGame.stadium_id,
       finished: liveGame.finished,
     } : null,
   }

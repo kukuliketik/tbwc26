@@ -16,6 +16,7 @@ interface LiveGameData {
   timeElapsed: string
   finished: string
   localDate?: string
+  stadiumId?: string
 }
 
 interface Match {
@@ -189,9 +190,9 @@ export default function MatchesPage() {
                 </div>
                 <div className="space-y-3">
                   {dateMatches.map((match) => {
-                    // Prefer worldcup26.ir localDate (Iran time + 2h30m = WIB) over DB date
+                    // Prefer worldcup26.ir localDate + stadium timezone → WIB, fallback to DB date
                     const matchDate = match.live?.localDate
-                      ? parseWC26Date(match.live.localDate)
+                      ? parseWC26Date(match.live.localDate, match.live.stadiumId)
                       : parseMatchDate(match.date)
                     const matchWIB = toZonedTime(matchDate, WIB)
                     const winner = match.result === 'Team A' ? match.teamA : match.result === 'Team B' ? match.teamB : null

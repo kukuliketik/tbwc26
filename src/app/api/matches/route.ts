@@ -46,6 +46,8 @@ export async function GET(request: NextRequest) {
                 isFinished: isFinished(wc26Game),
                 timeElapsed: wc26Game.time_elapsed,
                 finished: wc26Game.finished,
+                localDate: wc26Game.local_date,
+                stadiumId: wc26Game.stadium_id,
               }
             }
           }
