@@ -47,8 +47,8 @@ export default function PicksPage() {
   const [matches, setMatches] = useState<Match[]>([])
   const [predictions, setPredictions] = useState<Record<number, string>>({})
   const [activeTab, setActiveTab] = useState<'groups' | 'knockout'>('groups')
-  const [activeGroup, setActiveGroup] = useState('A')
-  const [activeRound, setActiveRound] = useState('Round of 32')
+  const [activeGroup, setActiveGroup] = useState<string | null>(null)
+  const [activeRound, setActiveRound] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [savingIds, setSavingIds] = useState<Set<number>>(new Set())
 
@@ -126,9 +126,17 @@ export default function PicksPage() {
   }
 
   const filtered = matches
-    .filter((m) =>
-      activeTab === 'groups' ? m.group === activeGroup : m.round === activeRound
-    )
+    .filter((m) => {
+      if (activeTab === 'groups') {
+        const inGroupStage = m.round === 'Group Stage'
+        if (!activeGroup) return inGroupStage
+        return inGroupStage && m.group === activeGroup
+      } else {
+        const isKnockout = m.round !== 'Group Stage'
+        if (!activeRound) return isKnockout
+        return isKnockout && m.round === activeRound
+      }
+    })
     .sort((a, b) => a.id - b.id)
 
   const groupStageCount = matches.filter((m) => m.round === 'Group Stage').length
@@ -160,7 +168,7 @@ export default function PicksPage() {
       {/* Round Tabs */}
       <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
         <button
-          onClick={() => setActiveTab('groups')}
+          onClick={() => { setActiveTab('groups'); setActiveGroup(null) }}
           className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
             activeTab === 'groups'
               ? 'bg-white dark:bg-gray-700 text-wc-navy dark:text-white shadow-sm'
@@ -171,7 +179,7 @@ export default function PicksPage() {
           <span className="text-[10px] opacity-60">({groupStageCount})</span>
         </button>
         <button
-          onClick={() => setActiveTab('knockout')}
+          onClick={() => { setActiveTab('knockout'); setActiveRound(null) }}
           className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
             activeTab === 'knockout'
               ? 'bg-white dark:bg-gray-700 text-wc-navy dark:text-white shadow-sm'
@@ -186,6 +194,16 @@ export default function PicksPage() {
       {/* Group Selector */}
       {activeTab === 'groups' && (
         <div className="flex gap-1.5 flex-wrap">
+          <button
+            onClick={() => setActiveGroup(null)}
+            className={`px-3 h-10 rounded-xl text-sm font-bold transition-all ${
+              activeGroup === null
+                ? 'bg-wc-navy text-white shadow-md scale-105'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-wc-navy/30 hover:text-wc-navy'
+            }`}
+          >
+            All
+          </button>
           {GROUPS.map((g) => (
             <button
               key={g}
@@ -205,6 +223,16 @@ export default function PicksPage() {
       {/* Knockout tabs */}
       {activeTab === 'knockout' && (
         <div className="flex gap-1.5 flex-wrap">
+          <button
+            onClick={() => setActiveRound(null)}
+            className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+              activeRound === null
+                ? 'bg-wc-navy text-white shadow-md'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-wc-navy/30'
+            }`}
+          >
+            🏆 All
+          </button>
           {KNOCKOUT_ROUNDS.map((r) => (
             <button
               key={r.key}
