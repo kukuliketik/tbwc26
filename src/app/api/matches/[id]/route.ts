@@ -36,15 +36,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     // If worldcup26.ir is down, just return our DB data
   }
 
-  // Merge live data with our DB data
+  // Merge live data with our DB data, override teams from worldcup26.ir
   const response = {
     id: match.id,
     date: match.date,
     round: match.round,
-    group: match.group,
+    group: liveGame?.group || match.group,
     stage: match.stage,
-    teamA: match.teamA,
-    teamB: match.teamB,
+    teamA: liveGame?.home_team_name_en || match.teamA,
+    teamB: liveGame?.away_team_name_en || match.teamB,
     result: match.result,
     predictions: match.predictions,
     // Live data from worldcup26.ir
