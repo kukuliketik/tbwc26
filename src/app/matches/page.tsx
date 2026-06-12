@@ -125,7 +125,9 @@ export default function MatchesPage() {
   const filtered = matches.filter((m) => m.round === activeRound)
 
   const groupedByDate = filtered.reduce<Record<string, Match[]>>((acc, m) => {
-    const d = parseMatchDate(m.date)
+    const d = m.live?.localDate
+      ? parseWC26Date(m.live.localDate, m.live.stadiumId)
+      : parseMatchDate(m.date)
     const key = format(toWIB(d), 'yyyy-MM-dd')
     if (!acc[key]) acc[key] = []
     acc[key].push(m)
