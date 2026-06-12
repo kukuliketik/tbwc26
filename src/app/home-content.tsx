@@ -194,9 +194,10 @@ export default function HomeContent() {
                 ? toZonedTime(parseWC26Date(m.live.localDate, m.live.stadiumId), WIB)
                 : toZonedTime(new Date(m.date), WIB)
               return (
-                <div
+                <Link
                   key={m.id}
-                  className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden hover:shadow-lg transition-all hover:-translate-y-0.5 group"
+                  href={`/matches/${m.id}`}
+                  className="block bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden hover:shadow-lg transition-all hover:-translate-y-0.5 group"
                 >
                   {/* Date header */}
                   <div className="bg-gradient-to-r from-wc-navy to-wc-navy-dark dark:from-gray-800 dark:to-gray-900 px-4 py-2.5 flex items-center justify-between">
@@ -232,7 +233,7 @@ export default function HomeContent() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               )
             })}
           </div>
