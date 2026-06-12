@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAllGames, parseScorers, sortScorersByTeam, isLive, isFinished, getHomeScore, getAwayScore, STADIUM_INFO, WC26Game } from '@/lib/worldcup26-api'
+import { getAllGames, parseScorers, isLive, isFinished, getHomeScore, getAwayScore, STADIUM_INFO, WC26Game } from '@/lib/worldcup26-api'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -40,10 +40,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const homeTeam = liveGame?.home_team_name_en || match.teamA
   const awayTeam = liveGame?.away_team_name_en || match.teamB
 
-  const rawHomeScorers = liveGame ? parseScorers(liveGame.home_scorers) : []
-  const rawAwayScorers = liveGame ? parseScorers(liveGame.away_scorers) : []
-  const sortedScorers = sortScorersByTeam(rawHomeScorers, rawAwayScorers, homeTeam, awayTeam)
-
   const response = {
     id: match.id,
     date: match.date,
@@ -58,8 +54,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     live: liveGame ? {
       homeScore: getHomeScore(liveGame),
       awayScore: getAwayScore(liveGame),
-      homeScorers: sortedScorers.homeScorers,
-      awayScorers: sortedScorers.awayScorers,
+      homeScorers: parseScorers(liveGame.home_scorers),
+      awayScorers: parseScorers(liveGame.away_scorers),
       isLive: isLive(liveGame),
       isFinished: isFinished(liveGame),
       timeElapsed: liveGame.time_elapsed,

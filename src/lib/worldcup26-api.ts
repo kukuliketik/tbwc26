@@ -169,31 +169,33 @@ export function parseScorers(scorersStr: string): string[] {
   if (!scorersStr || scorersStr === 'null' || scorersStr === '[]') return []
   try {
     const parsed = JSON.parse(scorersStr)
+    let entries: string[]
     if (Array.isArray(parsed)) {
-      return parsed.map(s => {
-        if (typeof s === 'object' && s !== null) {
-          return s.name || s.scorer || JSON.stringify(s)
-        }
-        return String(s)
-      })
+      entries = parsed.map(String)
+    } else if (typeof parsed === 'object' && parsed !== null) {
+      entries = Object.values(parsed).map(String)
+    } else {
+      entries = [scorersStr]
     }
-    return [scorersStr]
+    return entries
+      .map(s => s.replace(/[{}"]/g, '').replace(/\d+['′]?\s*$/, '').trim())
+      .filter(Boolean)
   } catch {
     return scorersStr
       .replace(/[\[\]{}"']/g, '')
       .split(',')
-      .map(s => s.trim())
+      .map(s => s.replace(/\d+['′]?\s*$/, '').trim())
       .filter(Boolean)
   }
 }
 
 export function sortScorersByTeam(
-  homeScorers: string[],
-  awayScorers: string[],
+  homeScorersRaw: string,
+  awayScorersRaw: string,
   homeTeam: string,
   awayTeam: string,
 ): { homeScorers: string[]; awayScorers: string[] } {
-  const allRaw = [...homeScorers, ...awayScorers]
+  const allRaw = [...parseScorers(homeScorersRaw), ...parseScorers(awayScorersRaw)]
   if (allRaw.length === 0) return { homeScorers: [], awayScorers: [] }
 
   const sorted = { homeScorers: [] as string[], awayScorers: [] as string[] }
@@ -205,15 +207,13 @@ export function sortScorersByTeam(
 
     let cleaned = raw
       .replace(/[{}"]/g, '')
+      .replace(/\d+['′]?\s*$/, '')
       .replace(new RegExp(`\\b${homeTeam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), '')
       .replace(new RegExp(`\\b${awayTeam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), '')
-      .replace(/\d+['′]?\s*$/, '')
       .trim()
 
-    if (lowerRaw.includes(lowerAway) && !lowerRaw.includes(lowerHome)) {
+    if (lowerRaw.includes(lowerAway)) {
       sorted.awayScorers.push(cleaned)
-    } else if (lowerRaw.includes(lowerHome) && !lowerRaw.includes(lowerAway)) {
-      sorted.homeScorers.push(cleaned)
     } else {
       sorted.homeScorers.push(cleaned)
     }
