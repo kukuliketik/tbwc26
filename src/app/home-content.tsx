@@ -38,6 +38,7 @@ export default function HomeContent() {
   const searchParams = useSearchParams()
   const authError = searchParams.get('error')
   const [upcoming, setUpcoming] = useState<Match[]>([])
+  const [myPick, setMyPick] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -48,6 +49,14 @@ export default function HomeContent() {
     }
     load()
   }, [])
+
+  useEffect(() => {
+    if (!session?.user) return
+    fetch('/api/winner-pick')
+      .then((res) => res.json())
+      .then((data) => { if (data?.team) setMyPick(data.team) })
+      .catch(() => {})
+  }, [session?.user])
 
   return (
     <div className="page-enter space-y-20">
@@ -124,6 +133,48 @@ export default function HomeContent() {
           </div>
         </div>
       </section>
+
+      {/* World Cup Winner Pick */}
+      {session?.user && (
+        <section>
+          {myPick ? (
+            <Link
+              href="/winner-pick"
+              className="block bg-fifa-card rounded-2xl p-6 border border-wc-gold/20 hover:border-wc-gold/40 transition-all hover:shadow-fifa-gold group"
+            >
+              <div className="flex items-center gap-4">
+                <span className="text-4xl">{getFlag(myPick)}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-white/50 mb-0.5">Your World Cup Champion pick</p>
+                  <h2 className="text-lg font-bold text-wc-gold truncate">{myPick}</h2>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[10px] font-semibold text-wc-red bg-wc-red/10 px-2.5 py-1 rounded-full border border-wc-red/30">
+                    LOCKED
+                  </span>
+                  <span className="text-white/30 group-hover:text-wc-gold transition-colors text-xl">→</span>
+                </div>
+              </div>
+            </Link>
+          ) : (
+            <Link
+              href="/winner-pick"
+              className="block bg-fifa-card rounded-2xl p-6 border border-wc-gold/20 hover:border-wc-gold/40 transition-all hover:shadow-fifa-gold group"
+            >
+              <div className="flex items-center gap-4">
+                <span className="text-4xl group-hover:scale-110 transition-transform">🏆</span>
+                <div className="flex-1">
+                  <h2 className="text-lg font-bold text-white group-hover:text-wc-gold transition-colors">
+                    Pick Your World Cup Champion
+                  </h2>
+                  <p className="text-sm text-white/50">Choose the team you think will win it all</p>
+                </div>
+                <span className="text-white/30 group-hover:text-wc-gold transition-colors text-xl">→</span>
+              </div>
+            </Link>
+          )}
+        </section>
+      )}
 
       {/* Upcoming Matches */}
       {upcoming.length > 0 && (

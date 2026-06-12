@@ -3,20 +3,22 @@
 import { useState } from 'react'
 
 interface Props {
-  name: string
+  name: string | null
   image?: string | null
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
   className?: string
 }
 
 const SIZES = {
+  xs: { outer: 'w-5 h-5', inner: 'text-[8px]' },
   sm: { outer: 'w-7 h-7', inner: 'text-[10px]' },
   md: { outer: 'w-8 h-8', inner: 'text-xs' },
   lg: { outer: 'w-14 h-14', inner: 'text-xl' },
   xl: { outer: 'w-20 h-20', inner: 'text-2xl' },
 }
 
-function getInitials(name: string): string {
+function getInitials(name: string | null): string {
+  if (!name) return '??'
   const parts = name.trim().split(/\s+/)
   if (parts.length >= 2) {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
@@ -24,7 +26,7 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase()
 }
 
-function getColorFromName(name: string): string {
+function getColorFromName(name: string | null): string {
   const colors = [
     'bg-blue-500',
     'bg-green-500',
@@ -37,7 +39,7 @@ function getColorFromName(name: string): string {
     'bg-wc-gold',
     'bg-wc-navy',
   ]
-  const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
+  const index = (name || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length
   return colors[index]
 }
 
@@ -49,7 +51,7 @@ export default function Avatar({ name, image, size = 'md', className = '' }: Pro
     return (
       <img
         src={image}
-        alt={name}
+        alt={name ?? ''}
         onError={() => setImgError(true)}
         className={`${sz.outer} rounded-full object-cover ring-2 ring-white/50 dark:ring-gray-800 ${className}`}
       />
