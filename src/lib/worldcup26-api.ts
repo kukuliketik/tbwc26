@@ -169,13 +169,21 @@ export function parseScorers(scorersStr: string): string[] {
   if (!scorersStr || scorersStr === 'null' || scorersStr === '[]') return []
   try {
     const parsed = JSON.parse(scorersStr)
-    if (Array.isArray(parsed)) return parsed
-    return [scorersStr]
-  } catch {
-    if (scorersStr.includes("'")) {
-      return scorersStr.replace(/[\[\]']/g, '').split(',').map(s => s.trim()).filter(Boolean)
+    if (Array.isArray(parsed)) {
+      return parsed.map(s => {
+        if (typeof s === 'object' && s !== null) {
+          return s.name || s.scorer || JSON.stringify(s)
+        }
+        return String(s)
+      })
     }
     return [scorersStr]
+  } catch {
+    return scorersStr
+      .replace(/[\[\]{}"']/g, '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
   }
 }
 
@@ -196,6 +204,7 @@ export function sortScorersByTeam(
     const lowerAway = awayTeam.toLowerCase()
 
     let cleaned = raw
+      .replace(/[{}"]/g, '')
       .replace(new RegExp(`\\b${homeTeam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), '')
       .replace(new RegExp(`\\b${awayTeam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), '')
       .replace(/\d+['′]?\s*$/, '')
