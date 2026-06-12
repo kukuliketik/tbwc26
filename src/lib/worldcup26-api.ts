@@ -104,7 +104,7 @@ export async function getAllStadiums(): Promise<WC26Stadium[]> {
   return data?.stadiums ?? []
 }
 
-// Convert venue local_date (MM/DD/YYYY HH:mm) to WIB using stadium timezone
+// Convert venue local_date (MM/DD/YYYY HH:mm) to UTC using stadium timezone
 export function parseWC26Date(localDate: string, stadiumId?: string): Date {
   const [datePart, timePart] = localDate.split(' ')
   const [month, day, year] = datePart.split('/').map(Number)
@@ -113,17 +113,16 @@ export function parseWC26Date(localDate: string, stadiumId?: string): Date {
   // Get venue UTC offset, default to Iran time (UTC+4:30)
   const venueOffset = stadiumId ? (STADIUM_UTC_OFFSET[stadiumId] ?? 4.5) : 4.5
 
-  // Convert: venue local → UTC → WIB
-  const offsetToWIB = WIB_OFFSET - venueOffset
-  const totalMinutes = hours * 60 + minutes + offsetToWIB * 60
-  const wibHours = Math.floor(totalMinutes / 60)
-  const wibMinutes = totalMinutes % 60
+  // Convert: venue local → UTC (subtract venue offset)
+  const totalMinutes = hours * 60 + minutes - venueOffset * 60
+  const utcHours = Math.floor(totalMinutes / 60)
+  const utcMinutes = totalMinutes % 60
 
-  // Handle day overflow (e.g., 26:00 → next day 02:00)
-  const dayOffset = Math.floor(wibHours / 24)
-  const finalHours = wibHours % 24
+  // Handle day overflow/underflow
+  const dayOffset = Math.floor(utcHours / 24)
+  const finalHours = ((utcHours % 24) + 24) % 24
 
-  return new Date(Date.UTC(year, month - 1, day + dayOffset, finalHours, wibMinutes, 0))
+  return new Date(Date.UTC(year, month - 1, day + dayOffset, finalHours, utcMinutes, 0))
 }
 
 export function isLive(game: WC26Game): boolean {
