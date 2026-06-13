@@ -49,7 +49,7 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
   const isLocked = matchDate.getTime() - ONE_HOUR_MS < now.getTime()
   const homeScore = match.live?.homeScore ?? 0
   const awayScore = match.live?.awayScore ?? 0
-  const computedResult = match.result ?? (homeScore > awayScore ? 'Team A' : homeScore < awayScore ? 'Team B' : homeScore === awayScore && match.live ? 'Draw' : null)
+  const computedResult = match.result ?? (match.live?.isFinished ? (homeScore > awayScore ? 'Team A' : homeScore < awayScore ? 'Team B' : 'Draw') : null)
   const isCorrect = computedResult && userPick === computedResult
   const isWrong = computedResult && userPick && userPick !== computedResult
 

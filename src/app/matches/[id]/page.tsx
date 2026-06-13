@@ -260,7 +260,7 @@ export default function MatchDetailPage() {
   const live = match.live
   const homeScore = live?.homeScore ?? 0
   const awayScore = live?.awayScore ?? 0
-  const computedResult = match.result ?? (homeScore > awayScore ? 'Team A' : homeScore < awayScore ? 'Team B' : homeScore === awayScore && live ? 'Draw' : null)
+  const computedResult = match.result ?? (live?.isFinished ? (homeScore > awayScore ? 'Team A' : homeScore < awayScore ? 'Team B' : 'Draw') : null)
   const isCorrect = computedResult && userPick === computedResult
   const isWrong = computedResult && userPick && userPick !== computedResult
 
