@@ -381,25 +381,6 @@ export default function MatchDetailPage() {
           </div>
         </div>
 
-        {/* Score Summary Bar */}
-        {(isLiveMatch || isFinishedMatch) && (
-          <div className="px-5 py-3 bg-gradient-to-r from-wc-navy to-wc-navy-mid flex items-center justify-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{getFlag(match.teamA)}</span>
-              <span className="text-sm font-bold text-white/80">{match.teamA}</span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-1.5 bg-white/10 rounded-xl">
-              <span className="text-2xl font-black text-white">{homeScore}</span>
-              <span className="text-lg text-white/50">-</span>
-              <span className="text-2xl font-black text-white">{awayScore}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-white/80">{match.teamB}</span>
-              <span className="text-lg">{getFlag(match.teamB)}</span>
-            </div>
-          </div>
-        )}
-
         {/* Match Scorers */}
         {live && (live.homeScorers.length > 0 || live.awayScorers.length > 0) && (
           <div className="px-5 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
