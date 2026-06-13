@@ -119,6 +119,7 @@ export default function LeaderboardPage() {
                 <tr className="border-b border-gray-200 dark:border-gray-800">
                   <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider px-4 py-3">Rank</th>
                   <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider px-4 py-3">Player</th>
+                  <th className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider px-4 py-3">Predictions</th>
                   <th className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider px-4 py-3">Correct</th>
                   <th className="text-right text-[10px] font-bold text-gray-400 uppercase tracking-wider px-4 py-3">Points</th>
                   <th className="text-right text-[10px] font-bold text-gray-400 uppercase tracking-wider px-4 py-3">Accuracy</th>
@@ -156,6 +157,11 @@ export default function LeaderboardPage() {
                             </div>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`text-sm ${isTop3 ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
+                          {entry.totalPredictions}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className={`text-sm ${isTop3 ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
