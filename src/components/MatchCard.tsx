@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz'
 import PredictionSelector from './PredictionSelector'
@@ -53,6 +54,19 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
   const isCorrect = computedResult && userPick === computedResult
   const isWrong = computedResult && userPick && userPick !== computedResult
 
+  const [elapsed, setElapsed] = useState(() => {
+    if (!match.live?.isLive) return 0
+    return Math.floor((Date.now() - matchDate.getTime()) / 60000)
+  })
+
+  useEffect(() => {
+    if (!match.live?.isLive) return
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - matchDate.getTime()) / 60000))
+    }, 30000)
+    return () => clearInterval(timer)
+  }, [match.live?.isLive, matchDate.getTime()])
+
   const winnerFlag = computedResult === 'Team A' ? getFlag(match.teamA) : computedResult === 'Team B' ? getFlag(match.teamB) : null
   const winnerName = computedResult === 'Team A' ? match.teamA : computedResult === 'Team B' ? match.teamB : 'Draw'
   const matchDay = format(matchWIB, 'EEE, MMM d')
@@ -103,7 +117,7 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
         <div className="absolute top-3 right-3 z-10">
           <span className="flex items-center gap-1 text-[10px] font-bold text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/30 px-2 py-1 rounded-full border border-red-200 dark:border-red-800">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full live-pulse" />
-            {match.live?.timeElapsed && match.live.timeElapsed !== 'notstarted' ? match.live.timeElapsed : 'LIVE'}
+            {elapsed > 0 ? `${elapsed}'` : 'LIVE'}
           </span>
         </div>
       )}
@@ -175,7 +189,7 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
                 <div className="flex flex-col items-center">
                   <span className="text-xs font-bold text-red-500 live-pulse">●</span>
                   <span className="text-[10px] font-bold text-red-500 mt-1">
-                    {match.live?.timeElapsed && match.live.timeElapsed !== 'notstarted' ? match.live.timeElapsed : 'LIVE'}
+                    {elapsed > 0 ? `${elapsed}'` : 'LIVE'}
                   </span>
                 </div>
               ) : (
