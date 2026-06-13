@@ -141,8 +141,8 @@ export default function MatchesPage() {
   return (
     <div className="page-enter space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Schedule & Results</h1>
-        <p className="text-sm text-gray-500 mt-1">All 104 matches · Times in WIB (UTC+7)</p>
+        <h1 className="text-2xl font-bold text-white">Schedule & Results</h1>
+        <p className="text-sm text-white/60 mt-1">All 104 matches · Times in WIB (UTC+7)</p>
       </div>
 
       {/* Round filter */}

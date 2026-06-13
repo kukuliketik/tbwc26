@@ -149,8 +149,8 @@ export default function PicksPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Your Predictions</h1>
-          <p className="text-sm text-gray-500 mt-1">Pick the winner for every match</p>
+          <h1 className="text-2xl font-bold text-white">Your Predictions</h1>
+          <p className="text-sm text-white/60 mt-1">Pick the winner for every match</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex-1 sm:flex-none bg-gray-100 dark:bg-gray-800 rounded-full h-2.5 overflow-hidden min-w-[120px]">
