@@ -74,8 +74,8 @@ export default function LeaderboardPage() {
   return (
     <div className="page-enter space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Leaderboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Real-time rankings · Updated every 30s</p>
+        <h1 className="text-2xl font-bold text-white">Leaderboard</h1>
+        <p className="text-sm text-white/60 mt-1">Real-time rankings · Updated every 30s</p>
       </div>
 
       {/* Stats Cards */}
