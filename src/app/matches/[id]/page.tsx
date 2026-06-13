@@ -384,7 +384,7 @@ export default function MatchDetailPage() {
         {/* Match Scorers */}
         {live && (live.homeScorers.length > 0 || live.awayScorers.length > 0) && (
           <div className="px-5 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3 text-center">
               {isLiveMatch ? 'Live Goals' : 'Goal Scorers'}
             </div>
             <div className="flex gap-4">
