@@ -99,7 +99,7 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
       )}
 
       {/* Live indicator */}
-      {isLocked && !match.result && (
+      {isLocked && !match.result && match.live?.isLive && (
         <div className="absolute top-3 right-3 z-10">
           <span className="flex items-center gap-1 text-[10px] font-bold text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/30 px-2 py-1 rounded-full border border-red-200 dark:border-red-800">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full live-pulse" />
@@ -171,7 +171,7 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
                     )}
                   </div>
                 </div>
-              ) : isLocked ? (
+              ) : isLocked && match.live?.isLive ? (
                 <div className="flex flex-col items-center">
                   <span className="text-xs font-bold text-red-500 live-pulse">●</span>
                   <span className="text-[10px] font-bold text-red-500 mt-1">LIVE</span>
