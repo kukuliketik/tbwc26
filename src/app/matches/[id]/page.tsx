@@ -194,9 +194,7 @@ export default function MatchDetailPage() {
 
   // Auto-refresh for live matches
   useEffect(() => {
-    if (!match) return
-    const status = getMatchStatus(match)
-    if (!status.isLive) return
+    if (!match?.live?.isLive) return
 
     const interval = setInterval(async () => {
       try {
@@ -211,7 +209,7 @@ export default function MatchDetailPage() {
     }, 30000) // Refresh every 30 seconds
 
     return () => clearInterval(interval)
-  }, [match, id])
+  }, [match?.live?.isLive, id])
 
   const handlePick = async (pick: string) => {
     setUserPick(pick)
