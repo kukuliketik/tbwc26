@@ -47,11 +47,14 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
   const now = new Date()
   const ONE_HOUR_MS = 60 * 60 * 1000
   const isLocked = matchDate.getTime() - ONE_HOUR_MS < now.getTime()
-  const isCorrect = match.result && userPick === match.result
-  const isWrong = match.result && userPick && userPick !== match.result
+  const homeScore = match.live?.homeScore ?? 0
+  const awayScore = match.live?.awayScore ?? 0
+  const computedResult = match.result ?? (homeScore > awayScore ? 'Team A' : homeScore < awayScore ? 'Team B' : homeScore === awayScore && match.live ? 'Draw' : null)
+  const isCorrect = computedResult && userPick === computedResult
+  const isWrong = computedResult && userPick && userPick !== computedResult
 
-  const winnerFlag = match.result === 'Team A' ? getFlag(match.teamA) : match.result === 'Team B' ? getFlag(match.teamB) : null
-  const winnerName = match.result === 'Team A' ? match.teamA : match.result === 'Team B' ? match.teamB : 'Draw'
+  const winnerFlag = computedResult === 'Team A' ? getFlag(match.teamA) : computedResult === 'Team B' ? getFlag(match.teamB) : null
+  const winnerName = computedResult === 'Team A' ? match.teamA : computedResult === 'Team B' ? match.teamB : 'Draw'
   const matchDay = format(matchWIB, 'EEE, MMM d')
   const matchTime = format(matchWIB, 'HH:mm')
 

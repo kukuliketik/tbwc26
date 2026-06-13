@@ -260,8 +260,9 @@ export default function MatchDetailPage() {
   const live = match.live
   const homeScore = live?.homeScore ?? 0
   const awayScore = live?.awayScore ?? 0
-  const isCorrect = match.result && userPick === match.result
-  const isWrong = match.result && userPick && userPick !== match.result
+  const computedResult = match.result ?? (homeScore > awayScore ? 'Team A' : homeScore < awayScore ? 'Team B' : homeScore === awayScore && live ? 'Draw' : null)
+  const isCorrect = computedResult && userPick === computedResult
+  const isWrong = computedResult && userPick && userPick !== computedResult
 
   const teamAPredictions = match.predictions.filter((p) => p.pick === 'Team A')
   const teamBPredictions = match.predictions.filter((p) => p.pick === 'Team B')
