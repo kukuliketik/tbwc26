@@ -1,7 +1,30 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getAllGames, getHomeScore, getAwayScore } from '@/lib/worldcup26-api'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  // Fetch live scores to compute results
+  let liveGames: Record<string, { homeScore: number; awayScore: number }> = {}
+  try {
+    const games = await getAllGames()
+    for (const g of games) {
+      liveGames[g.id] = { homeScore: getHomeScore(g), awayScore: getAwayScore(g) }
+    }
+  } catch {
+    // If worldcup26.ir is down, fall back to DB results
+  }
+
+  function getResult(match: { id: number; result: string | null }): string | null {
+    if (match.result) return match.result
+    const live = liveGames[match.id.toString()]
+    if (!live) return null
+    if (live.homeScore > live.awayScore) return 'Team A'
+    if (live.homeScore < live.awayScore) return 'Team B'
+    return 'Draw'
+  }
+
   // Only authenticated users (has Google Account)
   const users = await prisma.user.findMany({
     where: {
@@ -20,7 +43,10 @@ export async function GET() {
     .map((user) => {
       const totalPredictions = user.predictions.length
       const correctPredictions = user.predictions.filter(
-        (p) => p.match.result && p.pick === p.match.result
+        (p) => {
+          const result = getResult(p.match)
+          return result && p.pick === result
+        }
       ).length
       const points = correctPredictions
       const accuracy = totalPredictions > 0 ? (correctPredictions / totalPredictions) * 100 : 0
