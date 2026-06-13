@@ -172,6 +172,7 @@ export default function MatchDetailPage() {
   const [loading, setLoading] = useState(true)
   const [userPick, setUserPick] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
     async function load() {
@@ -252,13 +253,11 @@ export default function MatchDetailPage() {
   const matchWIB = toZonedTime(matchDate, WIB)
   const now = new Date()
   const isLocked = matchDate.getTime() - ONE_HOUR_MS < now.getTime()
-  const [elapsed, setElapsed] = useState(() => {
-    if (!match?.live?.isLive) return 0
-    return Math.floor((Date.now() - matchDate.getTime()) / 60000)
-  })
 
+  // Update elapsed minutes for live matches
   useEffect(() => {
     if (!match?.live?.isLive) return
+    setElapsed(Math.floor((Date.now() - matchDate.getTime()) / 60000))
     const timer = setInterval(() => {
       setElapsed(Math.floor((Date.now() - matchDate.getTime()) / 60000))
     }, 30000)
