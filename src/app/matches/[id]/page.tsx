@@ -212,6 +212,19 @@ export default function MatchDetailPage() {
     return () => clearInterval(interval)
   }, [match?.live?.isLive, id])
 
+  // Elapsed minutes for live matches
+  useEffect(() => {
+    if (!match?.live?.isLive) return
+    const matchTs = match.live?.localDate
+      ? parseWC26Date(match.live.localDate, match.live.stadiumId).getTime()
+      : new Date(match.date).getTime()
+    setElapsed(Math.floor((Date.now() - matchTs) / 60000))
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - matchTs) / 60000))
+    }, 30000)
+    return () => clearInterval(timer)
+  }, [match?.live?.isLive, match])
+
   const handlePick = async (pick: string) => {
     setUserPick(pick)
     setSaving(true)
@@ -253,16 +266,6 @@ export default function MatchDetailPage() {
   const matchWIB = toZonedTime(matchDate, WIB)
   const now = new Date()
   const isLocked = matchDate.getTime() - ONE_HOUR_MS < now.getTime()
-
-  // Update elapsed minutes for live matches
-  useEffect(() => {
-    if (!match?.live?.isLive) return
-    setElapsed(Math.floor((Date.now() - matchDate.getTime()) / 60000))
-    const timer = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - matchDate.getTime()) / 60000))
-    }, 30000)
-    return () => clearInterval(timer)
-  }, [match?.live?.isLive, matchDate.getTime()])
 
   const status = getMatchStatus(match)
   const isLiveMatch = status.isLive
