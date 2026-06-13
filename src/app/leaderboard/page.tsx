@@ -14,6 +14,7 @@ interface Entry {
   points: number
   correctPredictions: number
   totalPredictions: number
+  totalFinished: number
   accuracy: number
 }
 
@@ -100,7 +101,7 @@ export default function LeaderboardPage() {
           <Avatar name={myEntry.name} image={myEntry.image} size="md" />
           <div className="flex-1">
             <div className="font-semibold text-gray-900 dark:text-white">{myEntry.name} <span className="text-xs text-wc-gold">(you)</span></div>
-            <div className="text-xs text-gray-500">{myEntry.correctPredictions}/{myEntry.totalPredictions} correct</div>
+              <div className="text-xs text-gray-500">{myEntry.correctPredictions}/{myEntry.totalFinished} correct</div>
           </div>
           <div className="text-right">
             <div className="text-2xl font-black text-wc-navy dark:text-wc-gold">{myEntry.points}</div>
@@ -158,7 +159,7 @@ export default function LeaderboardPage() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className={`text-sm ${isTop3 ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
-                          {entry.correctPredictions}/{entry.totalPredictions}
+                          {entry.correctPredictions}/{entry.totalFinished}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">

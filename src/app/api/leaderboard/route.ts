@@ -1,16 +1,20 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAllGames, getHomeScore, getAwayScore } from '@/lib/worldcup26-api'
+import { getAllGames, getHomeScore, getAwayScore, isFinished } from '@/lib/worldcup26-api'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   // Fetch live scores to compute results
-  let liveGames: Record<string, { homeScore: number; awayScore: number }> = {}
+  let liveGames: Record<string, { homeScore: number; awayScore: number; finished: boolean }> = {}
   try {
     const games = await getAllGames()
     for (const g of games) {
-      liveGames[g.id] = { homeScore: getHomeScore(g), awayScore: getAwayScore(g) }
+      liveGames[g.id] = {
+        homeScore: getHomeScore(g),
+        awayScore: getAwayScore(g),
+        finished: isFinished(g),
+      }
     }
   } catch {
     // If worldcup26.ir is down, fall back to DB results
@@ -19,7 +23,7 @@ export async function GET() {
   function getResult(match: { id: number; result: string | null }): string | null {
     if (match.result) return match.result
     const live = liveGames[match.id.toString()]
-    if (!live) return null
+    if (!live || !live.finished) return null
     if (live.homeScore > live.awayScore) return 'Team A'
     if (live.homeScore < live.awayScore) return 'Team B'
     return 'Draw'
@@ -41,15 +45,15 @@ export async function GET() {
 
   const leaderboard = users
     .map((user) => {
-      const totalPredictions = user.predictions.length
-      const correctPredictions = user.predictions.filter(
-        (p) => {
-          const result = getResult(p.match)
-          return result && p.pick === result
-        }
+      const finishedPredictions = user.predictions.filter(
+        (p) => getResult(p.match) !== null
+      )
+      const totalFinished = finishedPredictions.length
+      const correctPredictions = finishedPredictions.filter(
+        (p) => p.pick === getResult(p.match)
       ).length
       const points = correctPredictions
-      const accuracy = totalPredictions > 0 ? (correctPredictions / totalPredictions) * 100 : 0
+      const accuracy = totalFinished > 0 ? (correctPredictions / totalFinished) * 100 : 0
 
       return {
         userId: user.id,
@@ -58,7 +62,8 @@ export async function GET() {
         image: user.image,
         points,
         correctPredictions,
-        totalPredictions,
+        totalPredictions: user.predictions.length,
+        totalFinished,
         accuracy: Math.round(accuracy * 100) / 100,
       }
     })
