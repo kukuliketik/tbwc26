@@ -252,6 +252,19 @@ export default function MatchDetailPage() {
   const matchWIB = toZonedTime(matchDate, WIB)
   const now = new Date()
   const isLocked = matchDate.getTime() - ONE_HOUR_MS < now.getTime()
+  const [elapsed, setElapsed] = useState(() => {
+    if (!match?.live?.isLive) return 0
+    return Math.floor((Date.now() - matchDate.getTime()) / 60000)
+  })
+
+  useEffect(() => {
+    if (!match?.live?.isLive) return
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - matchDate.getTime()) / 60000))
+    }, 30000)
+    return () => clearInterval(timer)
+  }, [match?.live?.isLive, matchDate.getTime()])
+
   const status = getMatchStatus(match)
   const isLiveMatch = status.isLive
   const isFinishedMatch = status.label === 'Full Time'
@@ -363,7 +376,7 @@ export default function MatchDetailPage() {
                     ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                     : 'bg-wc-gold/10 text-wc-gold'
               }`}>
-                {status.label}
+                {isLiveMatch ? (elapsed > 0 ? `${elapsed}'` : 'LIVE') : status.label}
               </span>
             </div>
 
