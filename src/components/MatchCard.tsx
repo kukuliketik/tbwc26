@@ -103,7 +103,7 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
         <div className="absolute top-3 right-3 z-10">
           <span className="flex items-center gap-1 text-[10px] font-bold text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/30 px-2 py-1 rounded-full border border-red-200 dark:border-red-800">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full live-pulse" />
-            LIVE
+            {match.live?.timeElapsed && match.live.timeElapsed !== 'notstarted' ? match.live.timeElapsed : 'LIVE'}
           </span>
         </div>
       )}
@@ -174,7 +174,9 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
               ) : isLocked && match.live?.isLive ? (
                 <div className="flex flex-col items-center">
                   <span className="text-xs font-bold text-red-500 live-pulse">●</span>
-                  <span className="text-[10px] font-bold text-red-500 mt-1">LIVE</span>
+                  <span className="text-[10px] font-bold text-red-500 mt-1">
+                    {match.live?.timeElapsed && match.live.timeElapsed !== 'notstarted' ? match.live.timeElapsed : 'LIVE'}
+                  </span>
                 </div>
               ) : (
                 <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800">
