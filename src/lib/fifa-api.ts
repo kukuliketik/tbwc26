@@ -211,13 +211,28 @@ export async function getTeamForm(teamId: string): Promise<FifaTeamForm | null> 
 
 const _detailCache: Record<string, { data: unknown; expiry: number }> = {}
 
-export function parseScorers(goals: FifaGoal[], players: FifaPlayer[]): string[] {
-  const playerMap = new Map<string, string>()
-  for (const p of players) {
-    playerMap.set(p.IdPlayer, p.ShortName?.[0]?.Description || p.PlayerName?.[0]?.Description || '?')
+export function parseScorers(
+  goals: FifaGoal[],
+  homePlayers: FifaPlayer[],
+  awayPlayers: FifaPlayer[],
+  homeTeamId?: string,
+  awayTeamId?: string
+): string[] {
+  const homeMap = new Map<string, string>()
+  const awayMap = new Map<string, string>()
+  for (const p of homePlayers) {
+    homeMap.set(p.IdPlayer, p.ShortName?.[0]?.Description || p.PlayerName?.[0]?.Description || '?')
   }
-  return goals.map(g => {
-    const name = playerMap.get(g.IdPlayer) || '?'
+  for (const p of awayPlayers) {
+    awayMap.set(p.IdPlayer, p.ShortName?.[0]?.Description || p.PlayerName?.[0]?.Description || '?')
+  }
+
+  return goals.map((g) => {
+    const isHomeGoal = g.IdTeam === homeTeamId
+    const isAwayGoal = g.IdTeam === awayTeamId
+    const ownGoal = g.Type === 1 || (isHomeGoal && awayMap.has(g.IdPlayer)) || (isAwayGoal && homeMap.has(g.IdPlayer))
+    let name = homeMap.get(g.IdPlayer) || awayMap.get(g.IdPlayer) || '?'
+    if (ownGoal) name += ' (OG)'
     return `${name} ${g.Minute}`
   })
 }
@@ -237,5 +252,123 @@ export async function getMatchDetail(idMatch: string): Promise<FifaMatchDetail |
   } catch (err) {
     console.error('FIFA match detail fetch failed:', err)
     return (cached?.data as FifaMatchDetail) ?? null
+  }
+}
+
+export interface FifaTimelineEvent {
+  Type: number
+  IdTeam?: string
+  IdPlayer?: string
+  MatchMinute?: string
+  Period: number
+  TypeLocalized?: { Locale: string; Description: string }[]
+}
+
+export interface FifaMatchTimeline {
+  IdMatch: string
+  Event: FifaTimelineEvent[]
+}
+
+export interface FifaDerivedStats {
+  teamId: string
+  corners: number
+  fouls: number
+  shots: number
+  offsides: number
+  yellowCards: number
+}
+
+export interface FifaMatchStats {
+  home: FifaDerivedStats
+  away: FifaDerivedStats
+}
+
+const EVENT_TYPES = {
+  GOAL: 0,
+  ASSIST: 1,
+  YELLOW_CARD: 2,
+  SUBSTITUTION: 5,
+  START_TIME: 7,
+  END_TIME: 8,
+  ATTEMPT_AT_GOAL: 12,
+  OFFSIDE: 15,
+  CORNER: 16,
+  FOUL: 18,
+} as const
+
+export async function getMatchTimeline(
+  idMatch: string,
+  isLiveMatch = false,
+  isFinishedMatch = false
+): Promise<FifaMatchTimeline | null> {
+  const now = Date.now()
+  const cacheKey = `timeline_${idMatch}`
+  const cached = _detailCache[cacheKey] as { data: FifaMatchTimeline; expiry: number } | undefined
+  if (cached && cached.expiry > now) return cached.data
+
+  // Finished matches never change — cache for 24h. Live matches update quickly.
+  const ttl = isFinishedMatch ? 24 * 60 * 60 * 1000 : isLiveMatch ? 10_000 : CACHE_TTL
+  const revalidate = isFinishedMatch ? 86400 : 0
+
+  try {
+    const url = `${BASE_URL}/timelines/${idMatch}?language=en`
+    const res = await fetch(url, { next: { revalidate } })
+    if (!res.ok) return null
+    const json = await res.json()
+    _detailCache[cacheKey] = { data: json as FifaMatchTimeline, expiry: now + ttl }
+    return json as FifaMatchTimeline
+  } catch (err) {
+    console.error('FIFA timeline fetch failed:', err)
+    return cached?.data ?? null
+  }
+}
+
+export function deriveStatsFromTimeline(
+  timeline: FifaMatchTimeline | null,
+  homeTeamId: string,
+  awayTeamId: string
+): FifaMatchStats | null {
+  if (!timeline) return null
+
+  const empty = (teamId: string): FifaDerivedStats => ({
+    teamId,
+    corners: 0,
+    fouls: 0,
+    shots: 0,
+    offsides: 0,
+    yellowCards: 0,
+  })
+
+  const stats: Record<string, FifaDerivedStats> = {
+    [homeTeamId]: empty(homeTeamId),
+    [awayTeamId]: empty(awayTeamId),
+  }
+
+  for (const ev of timeline.Event ?? []) {
+    const teamId = ev.IdTeam
+    if (!teamId || !stats[teamId]) continue
+
+    switch (ev.Type) {
+      case EVENT_TYPES.CORNER:
+        stats[teamId].corners += 1
+        break
+      case EVENT_TYPES.FOUL:
+        stats[teamId].fouls += 1
+        break
+      case EVENT_TYPES.ATTEMPT_AT_GOAL:
+        stats[teamId].shots += 1
+        break
+      case EVENT_TYPES.OFFSIDE:
+        stats[teamId].offsides += 1
+        break
+      case EVENT_TYPES.YELLOW_CARD:
+        stats[teamId].yellowCards += 1
+        break
+    }
+  }
+
+  return {
+    home: stats[homeTeamId],
+    away: stats[awayTeamId],
   }
 }

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   // Fetch live scores to compute results
-  let fifaByMatchNum: Map<number, FifaMatch> = new Map()
+  const fifaByMatchNum: Map<number, FifaMatch> = new Map()
   try {
     const matches = await getAllMatches()
     for (const m of matches) {

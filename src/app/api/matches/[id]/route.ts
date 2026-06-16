@@ -35,8 +35,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (fifaMatch) {
       const detail = await getMatchDetail(fifaMatch.IdMatch)
       if (detail) {
-        homeScorers = parseScorers(detail.HomeTeam?.Goals ?? [], detail.HomeTeam?.Players ?? [])
-        awayScorers = parseScorers(detail.AwayTeam?.Goals ?? [], detail.AwayTeam?.Players ?? [])
+        const homePlayers = detail.HomeTeam?.Players ?? []
+        const awayPlayers = detail.AwayTeam?.Players ?? []
+        const homeTeamId = fifaMatch.Home?.IdTeam ?? ''
+        const awayTeamId = fifaMatch.Away?.IdTeam ?? ''
+        homeScorers = parseScorers(detail.HomeTeam?.Goals ?? [], homePlayers, awayPlayers, homeTeamId, awayTeamId)
+        awayScorers = parseScorers(detail.AwayTeam?.Goals ?? [], homePlayers, awayPlayers, homeTeamId, awayTeamId)
       }
       const [hf, af] = await Promise.all([
         getTeamForm(fifaMatch.Home?.IdTeam ?? ''),

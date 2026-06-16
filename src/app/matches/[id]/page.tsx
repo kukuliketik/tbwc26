@@ -1,9 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { format } from 'date-fns'
-import { toZonedTime } from 'date-fns-tz'
 import { useSession } from 'next-auth/react'
 import { getFlag, getRoundColor, getRoundIcon } from '@/lib/flags'
 import { parseWC26Date } from '@/lib/worldcup26-api'
@@ -12,6 +10,7 @@ import Avatar from '@/components/Avatar'
 import CountdownTimer from '@/components/CountdownTimer'
 import RecentMatches from '@/components/RecentMatches'
 import MatchInsights from '@/components/MatchInsights'
+import MatchStats from '@/components/MatchStats'
 import { useToast } from '@/components/Toast'
 
 interface UserInfo {
@@ -25,6 +24,9 @@ interface Prediction {
   userId: string
   matchId: number
   pick: string
+  homeScore: number | null
+  awayScore: number | null
+  cornersPick: string | null
   user: UserInfo
 }
 
@@ -52,6 +54,11 @@ interface TeamStats {
   MatchesList?: { Date: string; HomeTeamScore: number; AwayTeamScore: number; Winner: string | null; Home: { TeamName: { Description: string }[] } | null; Away: { TeamName: { Description: string }[] } | null; StageName: { Description: string }[] }[]
 }
 
+interface MatchStats {
+  home: { teamId: string; corners: number; fouls: number; shots: number; offsides: number; yellowCards: number }
+  away: { teamId: string; corners: number; fouls: number; shots: number; offsides: number; yellowCards: number }
+}
+
 interface MatchDetail {
   id: number
   date: string
@@ -64,9 +71,9 @@ interface MatchDetail {
   predictions: Prediction[]
   live: LiveGameData | null
   teamStats?: { home: TeamStats | null; away: TeamStats | null } | null
+  matchStats?: MatchStats | null
 }
 
-const WIB = 'Asia/Jakarta'
 const ONE_HOUR_MS = 60 * 60 * 1000
 
 function getMatchStatus(match: MatchDetail): { label: string; color: string; isLive: boolean } {
@@ -103,9 +110,29 @@ export default function MatchDetailPage() {
   const { addToast } = useToast()
   const [match, setMatch] = useState<MatchDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(false)
   const [userPick, setUserPick] = useState<string | null>(null)
+  const [scorePick, setScorePick] = useState<{ home: string; away: string }>({ home: '', away: '' })
+  const [cornersPick, setCornersPick] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [savingExtras, setSavingExtras] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+
+  const loadStats = useCallback(async (currentMatch: MatchDetail) => {
+    if (!currentMatch.live) return
+    setStatsLoading(true)
+    try {
+      const res = await fetch(`/api/matches/${id}/stats`)
+      if (res.ok) {
+        const data = await res.json()
+        setMatch((prev) => (prev ? { ...prev, matchStats: data.matchStats } : prev))
+      }
+    } catch {
+      // Silent fail — stats are supplementary
+    } finally {
+      setStatsLoading(false)
+    }
+  }, [id])
 
   useEffect(() => {
     async function load() {
@@ -115,7 +142,13 @@ export default function MatchDetailPage() {
         const data: MatchDetail = await res.json()
         setMatch(data)
         const myPred = data.predictions.find((p) => p.userId === session?.user?.id)
-        if (myPred) setUserPick(myPred.pick)
+        if (myPred) {
+          setUserPick(myPred.pick)
+          setScorePick({ home: myPred.homeScore?.toString() ?? '', away: myPred.awayScore?.toString() ?? '' })
+          setCornersPick(myPred.cornersPick)
+        }
+        // Load stats in parallel so the main page renders fast
+        loadStats(data)
       } catch {
         addToast('Match not found', 'error')
         router.push('/matches')
@@ -124,7 +157,7 @@ export default function MatchDetailPage() {
       }
     }
     if (id) load()
-  }, [id, session?.user?.id])
+  }, [id, session?.user?.id, loadStats, addToast, router])
 
   // Auto-refresh for live matches
   useEffect(() => {
@@ -136,14 +169,21 @@ export default function MatchDetailPage() {
         if (res.ok) {
           const data: MatchDetail = await res.json()
           setMatch(data)
+          const refreshedPred = data.predictions.find((p) => p.userId === session?.user?.id)
+          if (refreshedPred && !savingExtras) {
+            setScorePick({ home: refreshedPred.homeScore?.toString() ?? '', away: refreshedPred.awayScore?.toString() ?? '' })
+            setCornersPick(refreshedPred.cornersPick)
+          }
         }
       } catch {
         // Silent fail for auto-refresh
       }
+      // Refresh stats separately — they have their own caching rules
+      if (match) loadStats(match)
     }, 10000) // Refresh every 10 seconds for near real-time score / goal scorer updates
 
     return () => clearInterval(interval)
-  }, [match?.live?.isLive, id])
+  }, [match?.live?.isLive, id, match, loadStats, savingExtras, session?.user?.id])
 
   // Elapsed minutes for live matches
   useEffect(() => {
@@ -151,11 +191,13 @@ export default function MatchDetailPage() {
     const matchTs = match.live?.localDate
       ? parseWC26Date(match.live.localDate, match.live.stadiumId).getTime()
       : new Date(match.date).getTime()
-    setElapsed(Math.floor((Date.now() - matchTs) / 60000))
-    const timer = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - matchTs) / 60000))
-    }, 30000)
-    return () => clearInterval(timer)
+    const update = () => setElapsed(Math.floor((Date.now() - matchTs) / 60000))
+    const initial = setTimeout(update, 0)
+    const timer = setInterval(update, 30000)
+    return () => {
+      clearTimeout(initial)
+      clearInterval(timer)
+    }
   }, [match?.live?.isLive, match])
 
   const handlePick = async (pick: string) => {
@@ -179,6 +221,30 @@ export default function MatchDetailPage() {
     }
   }
 
+  const handleSaveExtras = async () => {
+    setSavingExtras(true)
+    try {
+      const res = await fetch('/api/predictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchId: parseInt(id),
+          homeScore: scorePick.home,
+          awayScore: scorePick.away,
+          cornersPick,
+        }),
+      })
+      if (!res.ok) throw new Error()
+      addToast('Score & corner predictions saved!', 'success')
+      const reloadRes = await fetch(`/api/matches/${id}`)
+      if (reloadRes.ok) setMatch(await reloadRes.json())
+    } catch {
+      addToast('Failed to save score & corners', 'error')
+    } finally {
+      setSavingExtras(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -196,7 +262,6 @@ export default function MatchDetailPage() {
   const matchDate = match.live?.localDate
     ? parseWC26Date(match.live.localDate, match.live.stadiumId)
     : new Date(match.date)
-  const matchWIB = toZonedTime(matchDate, WIB)
   const now = new Date()
   const isLocked = matchDate.getTime() - ONE_HOUR_MS < now.getTime()
 
@@ -208,12 +273,15 @@ export default function MatchDetailPage() {
   const awayScore = live?.awayScore ?? 0
   const computedResult = match.result ?? (live?.isFinished ? (homeScore > awayScore ? 'Team A' : homeScore < awayScore ? 'Team B' : 'Draw') : null)
   const isCorrect = computedResult && userPick === computedResult
-  const isWrong = computedResult && userPick && userPick !== computedResult
 
   const teamAPredictions = match.predictions.filter((p) => p.pick === 'Team A')
   const teamBPredictions = match.predictions.filter((p) => p.pick === 'Team B')
   const drawPredictions = match.predictions.filter((p) => p.pick === 'Draw')
   const totalPicks = match.predictions.length
+  const extrasPredictions = match.predictions.filter(
+    (p) => p.homeScore !== null || p.awayScore !== null || p.cornersPick !== null
+  )
+  const totalExtras = extrasPredictions.length
 
   function pickPct(team: 'Team A' | 'Team B' | 'Draw'): number {
     if (!match || totalPicks === 0) return 0
@@ -365,6 +433,17 @@ export default function MatchDetailPage() {
               )}
             </div>
 
+      {/* ===== MATCH STATS ===== */}
+      {match.live && (
+        <MatchStats
+          teamA={match.teamA}
+          teamB={match.teamB}
+          home={match.matchStats?.home}
+          away={match.matchStats?.away}
+          isLoading={statsLoading}
+        />
+      )}
+
       {/* ===== PREDICTION SECTION — authenticated users only ===== */}
       {session?.user && (
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
@@ -374,17 +453,19 @@ export default function MatchDetailPage() {
           </h3>
         </div>
         <div className="p-5">
-          {isFinishedMatch ? (
-            <div className="text-center">
+          {isFinishedMatch || isLiveMatch ? (
+            <div className="space-y-3">
               {userPick ? (
-                <div className={`inline-flex items-center gap-3 px-5 py-3 rounded-xl ${
+                <div className={`inline-flex w-full items-center gap-3 px-5 py-3 rounded-xl ${
                   isCorrect
                     ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                    : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
+                    : isLiveMatch
+                      ? 'bg-wc-gold/10 text-wc-gold border border-wc-gold/30'
+                      : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
                 }`}>
-                  <span className="text-2xl">{isCorrect ? '✅' : '❌'}</span>
+                  <span className="text-2xl">{isLiveMatch ? '⏳' : isCorrect ? '✅' : '❌'}</span>
                   <div className="text-left">
-                    <div className="text-sm font-bold">{isCorrect ? 'Correct!' : 'Wrong'}</div>
+                    <div className="text-sm font-bold">{isLiveMatch ? 'Locked In' : isCorrect ? 'Correct!' : 'Wrong'}</div>
                     <div className="text-[11px] opacity-75">
                       You picked: {userPick === 'Team A' ? match.teamA : userPick === 'Team B' ? match.teamB : 'Draw'}
                     </div>
@@ -396,27 +477,83 @@ export default function MatchDetailPage() {
                   <span className="text-sm">No prediction made</span>
                 </div>
               )}
+              {(scorePick.home || scorePick.away || cornersPick) && (
+                <div className="grid grid-cols-2 gap-3 text-center">
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl px-3 py-2">
+                    <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Predicted Score</div>
+                    <div className="text-sm font-bold text-gray-700 dark:text-gray-200">{scorePick.home || '—'} - {scorePick.away || '—'}</div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl px-3 py-2">
+                    <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Predicted Corners</div>
+                    <div className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                      {cornersPick === 'Team A' ? match.teamA : cornersPick === 'Team B' ? match.teamB : cornersPick === 'Draw' ? 'Draw' : '—'}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
-            <div>
-              {isLiveMatch ? (
-                <div className="text-center py-4">
-                  <span className="text-sm text-gray-400">Match is live — predictions closed</span>
-                </div>
-              ) : (
-                <PredictionSelector
-                  pick={userPick}
-                  onSelect={handlePick}
-                  teamA={match.teamA}
-                  teamB={match.teamB}
-                  disabled={isLocked}
-                />
-              )}
+            <div className="space-y-4">
+              <PredictionSelector
+                pick={userPick}
+                onSelect={handlePick}
+                teamA={match.teamA}
+                teamB={match.teamB}
+                disabled={isLocked}
+              />
               {saving && (
-                <div className="text-center mt-2">
+                <div className="text-center">
                   <span className="text-xs text-gray-400">Saving...</span>
                 </div>
               )}
+
+              {/* ===== SCORE & CORNERS PREDICTION (slim) ===== */}
+              <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Predict Score & Corners</div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Full-time score</span>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={scorePick.home}
+                        onChange={(e) => setScorePick((prev) => ({ ...prev, home: e.target.value }))}
+                        disabled={isLocked}
+                        className="w-full min-w-0 text-center text-sm font-semibold px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-wc-gold/50 disabled:opacity-50"
+                      />
+                      <span className="text-xs text-gray-400">-</span>
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={scorePick.away}
+                        onChange={(e) => setScorePick((prev) => ({ ...prev, away: e.target.value }))}
+                        disabled={isLocked}
+                        className="w-full min-w-0 text-center text-sm font-semibold px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-wc-gold/50 disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">More corners</span>
+                    <PredictionSelector
+                      pick={cornersPick}
+                      onSelect={setCornersPick}
+                      teamA={match.teamA}
+                      teamB={match.teamB}
+                      disabled={isLocked}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleSaveExtras}
+                  disabled={isLocked || savingExtras}
+                  className="mt-4 w-full py-2 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-bold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  {savingExtras ? 'Saving...' : 'Save Score & Corners'}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -492,6 +629,43 @@ export default function MatchDetailPage() {
             <div className="p-8 text-center">
               <div className="text-3xl mb-2">🔮</div>
               <p className="text-sm text-gray-500">No predictions yet — be the first!</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== SCORE & CORNER PREDICTIONS — authenticated users only ===== */}
+      {session?.user && (
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+              Score & Corner Predictions {totalExtras > 0 && <span className="font-normal">({totalExtras})</span>}
+            </h3>
+          </div>
+
+          {totalExtras > 0 ? (
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {extrasPredictions.map((p) => (
+                <div key={p.id} className="px-5 py-3 flex items-center gap-3">
+                  <Avatar name={p.user.name ?? '?'} image={p.user.image} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{p.user.name}</div>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">
+                      {p.homeScore ?? '—'} - {p.awayScore ?? '—'}
+                    </span>
+                    <span className="px-2 py-1 rounded-md bg-wc-gold/10 text-wc-gold font-semibold">
+                      {p.cornersPick === 'Team A' ? match.teamA : p.cornersPick === 'Team B' ? match.teamB : p.cornersPick === 'Draw' ? 'Draw' : '—'} corners
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center">
+              <div className="text-3xl mb-2">🎯</div>
+              <p className="text-sm text-gray-500">No score or corner predictions yet.</p>
             </div>
           )}
         </div>
