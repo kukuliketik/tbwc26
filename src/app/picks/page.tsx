@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
 import MatchCard from '@/components/MatchCard'
 import { useToast } from '@/components/Toast'
-import { getRoundColor } from '@/lib/flags'
 import { parseWC26Date } from '@/lib/worldcup26-api'
 
 interface LiveGameData {
@@ -51,6 +50,8 @@ export default function PicksPage() {
   const [activeRound, setActiveRound] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [savingIds, setSavingIds] = useState<Set<number>>(new Set())
+  const now = useMemo(() => new Date(), [])
+  const hasScrolledRef = useRef(false)
 
   useEffect(() => {
     async function load() {
@@ -113,18 +114,6 @@ export default function PicksPage() {
     }
   }, [addToast, matches])
 
-  if (status === 'unauthenticated') redirect('/')
-  if (status === 'loading') {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-wc-navy border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm text-gray-500">Loading...</span>
-        </div>
-      </div>
-    )
-  }
-
   const filtered = matches
     .filter((m) => {
       if (activeTab === 'groups') {
@@ -137,12 +126,51 @@ export default function PicksPage() {
         return isKnockout && m.round === activeRound
       }
     })
-    .sort((a, b) => a.id - b.id)
+    .sort((a, b) => {
+      const dateA = a.live?.localDate
+        ? parseWC26Date(a.live.localDate, a.live.stadiumId)
+        : new Date(a.date)
+      const dateB = b.live?.localDate
+        ? parseWC26Date(b.live.localDate, b.live.stadiumId)
+        : new Date(b.date)
+      return dateA.getTime() - dateB.getTime()
+    })
 
   const groupStageCount = matches.filter((m) => m.round === 'Group Stage').length
   const knockoutCount = matches.filter((m) => m.round !== 'Group Stage').length
   const predictedCount = Object.keys(predictions).length
   const progressPct = matches.length > 0 ? Math.round((predictedCount / matches.length) * 100) : 0
+
+  const nextMatchId = filtered.find((m) => {
+    const matchDate = m.live?.localDate
+      ? parseWC26Date(m.live.localDate, m.live.stadiumId)
+      : new Date(m.date)
+    const isLocked = matchDate.getTime() - 60 * 60 * 1000 < now.getTime()
+    return !isLocked
+  })?.id
+
+  useEffect(() => {
+    if (loading || !nextMatchId || hasScrolledRef.current) return
+    hasScrolledRef.current = true
+    const el = document.getElementById(`pick-match-${nextMatchId}`)
+    if (el) {
+      const offset = 120
+      const top = el.getBoundingClientRect().top + window.scrollY - offset
+      window.scrollTo({ top, behavior: 'smooth' })
+    }
+  }, [loading, nextMatchId])
+
+  if (status === 'unauthenticated') redirect('/')
+  if (status === 'loading') {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-wc-navy border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm text-gray-500">Loading...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="page-enter space-y-6">
@@ -274,15 +302,26 @@ export default function PicksPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {filtered.map((match) => (
-            <MatchCard
-              key={match.id}
-              match={match}
-              userPick={predictions[match.id] ?? null}
-              saving={savingIds.has(match.id)}
-              onPick={handlePick}
-            />
-          ))}
+          {filtered.map((match) => {
+            const isNextMatch = match.id === nextMatchId
+            return (
+              <div key={match.id} id={`pick-match-${match.id}`} className="relative">
+                {isNextMatch && (
+                  <div className="absolute -top-2 left-3 z-10">
+                    <span className="text-[10px] font-bold text-white bg-wc-gold px-2 py-0.5 rounded-full shadow-sm">
+                      Next Match
+                    </span>
+                  </div>
+                )}
+                <MatchCard
+                  match={match}
+                  userPick={predictions[match.id] ?? null}
+                  saving={savingIds.has(match.id)}
+                  onPick={handlePick}
+                />
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

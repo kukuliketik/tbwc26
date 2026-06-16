@@ -1,44 +1,37 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAllGames, getHomeScore, getAwayScore, isFinished } from '@/lib/worldcup26-api'
+import { getAllMatches, isFinished, getHomeScore, getAwayScore, FifaMatch } from '@/lib/fifa-api'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   // Fetch live scores to compute results
-  let liveGames: Record<string, { homeScore: number; awayScore: number; finished: boolean }> = {}
+  let fifaByMatchNum: Map<number, FifaMatch> = new Map()
   try {
-    const games = await getAllGames()
-    for (const g of games) {
-      liveGames[g.id] = {
-        homeScore: getHomeScore(g),
-        awayScore: getAwayScore(g),
-        finished: isFinished(g),
-      }
+    const matches = await getAllMatches()
+    for (const m of matches) {
+      fifaByMatchNum.set(m.MatchNumber, m)
     }
   } catch {
-    // If worldcup26.ir is down, fall back to DB results
+    // FIFA API down — fall back to DB results
   }
 
   function getResult(match: { id: number; result: string | null }): string | null {
     if (match.result) return match.result
-    const live = liveGames[match.id.toString()]
-    if (!live || !live.finished) return null
-    if (live.homeScore > live.awayScore) return 'Team A'
-    if (live.homeScore < live.awayScore) return 'Team B'
+    const fifa = fifaByMatchNum.get(match.id)
+    if (!fifa || !isFinished(fifa)) return null
+    const hs = getHomeScore(fifa)
+    const as = getAwayScore(fifa)
+    if (hs > as) return 'Team A'
+    if (hs < as) return 'Team B'
     return 'Draw'
   }
 
-  // Only authenticated users (has Google Account)
   const users = await prisma.user.findMany({
-    where: {
-      accounts: { some: {} },
-    },
+    where: { accounts: { some: {} } },
     include: {
       predictions: {
-        include: {
-          match: true,
-        },
+        include: { match: true },
       },
     },
   })

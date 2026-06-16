@@ -184,7 +184,7 @@ export default function HomeContent() {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Upcoming Matches</h2>
               <p className="text-sm text-gray-500 mt-1">Next matches to predict</p>
             </div>
-            <Link href="/matches" className="text-sm font-medium text-wc-green hover:text-wc-green-light transition-colors">
+            <Link href="/matches" className="text-sm font-medium text-white hover:text-white/80 transition-colors">
               Full Schedule →
             </Link>
           </div>
@@ -273,8 +273,6 @@ export default function HomeContent() {
           />
         </div>
         <p className="text-sm text-gray-400">
-          Data sourced from Google Sheets · Live scores via football-data.org
-          <br />
           TBWC26 — Transaction Banking World Cup 2026 Predictions Challenge
         </p>
       </footer>

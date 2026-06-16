@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAllGames, isLive, isFinished, getHomeScore, getAwayScore, STADIUM_INFO, WC26Game } from '@/lib/worldcup26-api'
+import { getAllMatches, isLive, isFinished, getHomeScore, getAwayScore, getHomeTeam, getAwayTeam, getRound, getGroup, getStadiumName, getStadiumCity, FifaMatch } from '@/lib/fifa-api'
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,35 +25,38 @@ export async function GET(request: NextRequest) {
       take: limit ? parseInt(limit) : undefined,
     })
 
-    // Always fetch live data from worldcup26.ir for accurate dates, scores, and teams
+    // Fetch FIFA API for live scores, dates, and teams
     try {
-      const wc26Games = await getAllGames()
-      const wc26Map = new Map<string, WC26Game>()
-      wc26Games.forEach(game => wc26Map.set(game.id, game))
+      const fifaMatches = await getAllMatches()
+      const fifaByMatchNum = new Map<number, FifaMatch>()
+      fifaMatches.forEach(m => fifaByMatchNum.set(m.MatchNumber, m))
 
-      // Merge live data with our matches, override team names from worldcup26.ir
       const enrichedMatches = matches.map(match => {
-        const wc26Game = wc26Map.get(match.id.toString())
-        if (wc26Game) {
+        const fifa = fifaByMatchNum.get(match.id)
+        if (fifa) {
           return {
             id: match.id,
             date: match.date,
-            round: match.round,
-            group: wc26Game.group || match.group,
+            round: getRound(fifa),
+            group: getGroup(fifa),
             stage: match.stage,
-            teamA: wc26Game.home_team_name_en || match.teamA,
-            teamB: wc26Game.away_team_name_en || match.teamB,
+            teamA: getHomeTeam(fifa),
+            teamB: getAwayTeam(fifa),
             result: match.result,
             live: {
-              homeScore: getHomeScore(wc26Game),
-              awayScore: getAwayScore(wc26Game),
-              isLive: isLive(wc26Game),
-              isFinished: isFinished(wc26Game),
-              timeElapsed: wc26Game.time_elapsed,
-              finished: wc26Game.finished,
-              localDate: wc26Game.local_date,
-              stadiumId: wc26Game.stadium_id,
-              stadium: STADIUM_INFO[wc26Game.stadium_id] ?? null,
+              homeScore: getHomeScore(fifa),
+              awayScore: getAwayScore(fifa),
+              isLive: isLive(fifa),
+              isFinished: isFinished(fifa),
+              timeElapsed: fifa.MatchTime,
+              finished: isFinished(fifa) ? 'TRUE' : 'FALSE',
+              localDate: fifa.Date,
+              stadiumId: fifa.IdMatch,
+              stadium: {
+                name: getStadiumName(fifa),
+                city: getStadiumCity(fifa),
+                country: fifa.Stadium?.IdCountry ?? '',
+              },
             }
           }
         }
@@ -62,7 +65,6 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json(enrichedMatches)
     } catch {
-      // If worldcup26.ir fails, return matches without live data
       return NextResponse.json(matches)
     }
   } catch (error) {

@@ -10,6 +10,8 @@ import { parseWC26Date } from '@/lib/worldcup26-api'
 import PredictionSelector from '@/components/PredictionSelector'
 import Avatar from '@/components/Avatar'
 import CountdownTimer from '@/components/CountdownTimer'
+import RecentMatches from '@/components/RecentMatches'
+import MatchInsights from '@/components/MatchInsights'
 import { useToast } from '@/components/Toast'
 
 interface UserInfo {
@@ -40,6 +42,16 @@ interface LiveGameData {
   finished: string
 }
 
+interface TeamStats {
+  MatchesPlayed: number
+  Wins: number
+  Losses: number
+  Draws: number
+  GoalsScored: number
+  GoalsAgainst: number
+  MatchesList?: { Date: string; HomeTeamScore: number; AwayTeamScore: number; Winner: string | null; Home: { TeamName: { Description: string }[] } | null; Away: { TeamName: { Description: string }[] } | null; StageName: { Description: string }[] }[]
+}
+
 interface MatchDetail {
   id: number
   date: string
@@ -51,90 +63,11 @@ interface MatchDetail {
   result: string | null
   predictions: Prediction[]
   live: LiveGameData | null
+  teamStats?: { home: TeamStats | null; away: TeamStats | null } | null
 }
 
 const WIB = 'Asia/Jakarta'
 const ONE_HOUR_MS = 60 * 60 * 1000
-
-function getH2HStats(teamA: string, teamB: string) {
-  const hash = (teamA + teamB).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-  
-  const getFifaRank = (name: string) => {
-    const ranks: Record<string, number> = {
-      'Argentina': 1, 'France': 2, 'England': 3, 'Belgium': 4, 'Brazil': 5,
-      'Netherlands': 6, 'Portugal': 7, 'Spain': 8, 'Italy': 9, 'Croatia': 10,
-      'USA': 11, 'Mexico': 15, 'South Africa': 59, 'Canada': 40, 'Japan': 17,
-      'Germany': 16, 'South Korea': 22, 'Morocco': 13, 'Saudi Arabia': 56
-    }
-    return ranks[name] || (11 + (name.length * 7) % 70)
-  }
-
-  const rankA = getFifaRank(teamA)
-  const rankB = getFifaRank(teamB)
-  
-  const totalPlayed = 3 + (hash % 6)
-  const drawCount = (hash % 3)
-  const remaining = totalPlayed - drawCount
-  const winA = Math.max(0, Math.round(remaining * (rankB / (rankA + rankB))))
-  const winB = Math.max(0, remaining - winA)
-  
-  const probA = Math.max(10, Math.min(80, Math.round((rankB / (rankA + rankB)) * 60) + 15))
-  const probB = Math.max(10, Math.min(80, Math.round((rankA / (rankA + rankB)) * 60) + 15))
-  const probDraw = 100 - probA - probB
-
-  const years = [2024, 2022, 2018, 2014, 2010, 2006].filter((_, i) => i < totalPlayed)
-  const history = years.map((yr, index) => {
-    let scoreA = 0
-    let scoreB = 0
-    if (index < winA) {
-      scoreA = 1 + (hash + index) % 3
-      scoreB = (hash + index) % scoreA
-    } else if (index < winA + winB) {
-      scoreB = 1 + (hash + index) % 3
-      scoreA = (hash + index) % scoreB
-    } else {
-      scoreA = scoreB = (hash + index) % 3
-    }
-    const comps = ['Friendly', 'World Cup', 'Confederations Cup', 'International Cup']
-    const comp = comps[(hash + index) % comps.length]
-    return {
-      year: yr,
-      score: `${scoreA} - ${scoreB}`,
-      comp,
-      winner: scoreA > scoreB ? 'Team A' : scoreB > scoreA ? 'Team B' : 'Draw'
-    }
-  })
-
-  const avgGoalsA = (1.2 + (hash % 10) / 10).toFixed(1)
-  const avgGoalsB = (1.0 + ((hash + 5) % 10) / 10).toFixed(1)
-
-  const cleanSheetsA = (hash % 4) + 1
-  const cleanSheetsB = ((hash + 2) % 4) + 1
-
-  const getForm = (h: number) => {
-    const options = [['W', 'W', 'D', 'W', 'L'], ['W', 'D', 'L', 'W', 'W'], ['L', 'L', 'D', 'W', 'D'], ['W', 'D', 'D', 'L', 'W']]
-    return options[h % options.length]
-  }
-
-  return {
-    totalPlayed,
-    winA,
-    winB,
-    drawCount,
-    probA,
-    probB,
-    probDraw,
-    rankA,
-    rankB,
-    history,
-    avgGoalsA,
-    avgGoalsB,
-    cleanSheetsA,
-    cleanSheetsB,
-    formA: getForm(hash),
-    formB: getForm(hash + 7)
-  }
-}
 
 function getMatchStatus(match: MatchDetail): { label: string; color: string; isLive: boolean } {
   const live = match.live
@@ -207,7 +140,7 @@ export default function MatchDetailPage() {
       } catch {
         // Silent fail for auto-refresh
       }
-    }, 30000) // Refresh every 30 seconds
+    }, 10000) // Refresh every 10 seconds for near real-time score / goal scorer updates
 
     return () => clearInterval(interval)
   }, [match?.live?.isLive, id])
@@ -287,7 +220,7 @@ export default function MatchDetailPage() {
     return Math.round((match.predictions.filter((p) => p.pick === team).length / totalPicks) * 100)
   }
 
-  const h2h = getH2HStats(match.teamA, match.teamB)
+  const teamStats = match.teamStats
 
   return (
     <div className="page-enter max-w-3xl mx-auto space-y-4">
@@ -428,140 +361,9 @@ export default function MatchDetailPage() {
                 )}
               </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* ===== HEAD 2 HEAD & STATS ===== */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden space-y-4">
-        <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-800/25">
-          <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            Head to Head & Team Statistics
-          </h3>
-          <span className="text-[10px] text-gray-400 font-semibold uppercase">FIFA Data Centre</span>
-        </div>
-
-        {/* H2H Record Badges */}
-        <div className="px-5 grid grid-cols-4 gap-3">
-          {[
-            { label: 'Played', value: h2h.totalPlayed, bg: 'bg-gray-50 dark:bg-gray-800/50 text-gray-500' },
-            { label: `${match.teamA} Wins`, value: h2h.winA, bg: 'bg-blue-50 dark:bg-blue-900/10 text-blue-500' },
-            { label: 'Draws', value: h2h.drawCount, bg: 'bg-gray-50 dark:bg-gray-800/50 text-gray-500' },
-            { label: `${match.teamB} Wins`, value: h2h.winB, bg: 'bg-orange-50 dark:bg-orange-900/10 text-orange-500' },
-          ].map((item) => (
-            <div key={item.label} className={`rounded-xl p-3 text-center border border-gray-100 dark:border-gray-800 ${item.bg}`}>
-              <div className="text-xl font-black">{item.value}</div>
-              <div className="text-[9px] font-bold uppercase mt-1 truncate">{item.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Win Probability Bar */}
-        <div className="px-5">
-          <div className="text-xs font-semibold text-gray-400 mb-2 text-center uppercase tracking-wider">Win Probability</div>
-          <div className="flex h-6 rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800">
-            <div
-              className="flex items-center justify-center text-[10px] font-bold text-white bg-blue-500"
-              style={{ width: `${h2h.probA}%` }}
-            >
-              {match.teamA} {h2h.probA}%
-            </div>
-            <div
-              className="flex items-center justify-center text-[10px] font-bold text-gray-700 bg-gray-200 dark:bg-gray-600 dark:text-gray-200"
-              style={{ width: `${h2h.probDraw}%` }}
-            >
-              Draw {h2h.probDraw}%
-            </div>
-            <div
-              className="flex items-center justify-center text-[10px] font-bold text-white bg-orange-500"
-              style={{ width: `${h2h.probB}%` }}
-            >
-              {match.teamB} {h2h.probB}%
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Meetings History List */}
-        <div className="px-5">
-          <div className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">Recent Head-to-Head Meetings</div>
-          <div className="bg-gray-50 dark:bg-gray-800/20 rounded-xl divide-y divide-gray-100 dark:divide-gray-800 border border-gray-100 dark:border-gray-800">
-            {h2h.history.map((m, idx) => (
-              <div key={idx} className="flex items-center justify-between px-4 py-2.5 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-400">{m.year}</span>
-                  <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-gray-200/50 dark:bg-gray-800/80 px-1.5 py-0.5 rounded">
-                    {m.comp}
-                  </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`font-semibold ${m.winner === 'Team A' ? 'text-blue-500 font-bold' : 'text-gray-500'}`}>
-                    {match.teamA}
-                  </span>
-                  <span className="font-mono bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-2 py-0.5 rounded font-black text-gray-800 dark:text-gray-200">
-                    {m.score}
-                  </span>
-                  <span className={`font-semibold ${m.winner === 'Team B' ? 'text-orange-500 font-bold' : 'text-gray-500'}`}>
-                    {match.teamB}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Dynamic Stats Comparison Grid */}
-        <div className="px-5 pb-5">
-          <div className="text-xs font-semibold text-gray-400 mb-2.5 uppercase tracking-wider">Key Team Comparison Stats</div>
-          <div className="space-y-3.5">
-            {/* FIFA Rank */}
-            <StatRow
-              label="FIFA World Ranking"
-              valA={`#${h2h.rankA}`}
-              valB={`#${h2h.rankB}`}
-              pctA={100 - (h2h.rankA * 100) / 100}
-              pctB={100 - (h2h.rankB * 100) / 100}
-            />
-            {/* Average Goals Scored */}
-            <StatRow
-              label="Avg Goals Scored"
-              valA={h2h.avgGoalsA}
-              valB={h2h.avgGoalsB}
-              pctA={(parseFloat(h2h.avgGoalsA) * 100) / 3}
-              pctB={(parseFloat(h2h.avgGoalsB) * 100) / 3}
-            />
-            {/* Clean Sheets */}
-            <StatRow
-              label="Clean Sheets (Last 5)"
-              valA={`${h2h.cleanSheetsA} / 5`}
-              valB={`${h2h.cleanSheetsB} / 5`}
-              pctA={(h2h.cleanSheetsA / 5) * 100}
-              pctB={(h2h.cleanSheetsB / 5) * 100}
-            />
-            {/* Team Form */}
-            <div className="flex items-center justify-between text-xs py-1">
-              <div className="flex items-center gap-1">
-                {h2h.formA.map((char, i) => (
-                  <span key={i} className={`w-5 h-5 rounded flex items-center justify-center font-bold text-[10px] text-white ${
-                    char === 'W' ? 'bg-emerald-500' : char === 'D' ? 'bg-gray-400' : 'bg-red-500'
-                  }`}>
-                    {char}
-                  </span>
-                ))}
-              </div>
-              <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Recent Form</span>
-              <div className="flex items-center gap-1">
-                {h2h.formB.map((char, i) => (
-                  <span key={i} className={`w-5 h-5 rounded flex items-center justify-center font-bold text-[10px] text-white ${
-                    char === 'W' ? 'bg-emerald-500' : char === 'D' ? 'bg-gray-400' : 'bg-red-500'
-                  }`}>
-                    {char}
-                  </span>
-                ))}
-              </div>
+              )}
             </div>
-          </div>
-        </div>
-      </div>
 
       {/* ===== PREDICTION SECTION — authenticated users only ===== */}
       {session?.user && (
@@ -694,28 +496,28 @@ export default function MatchDetailPage() {
           )}
         </div>
       )}
+
+      {/* ===== MATCH INSIGHTS ===== */}
+      {teamStats && (teamStats.home || teamStats.away) && (
+        <MatchInsights
+          teamA={match.teamA}
+          teamB={match.teamB}
+          homeStats={teamStats.home}
+          awayStats={teamStats.away}
+        />
+      )}
+
+      {/* ===== RECENT FORM ===== */}
+      {teamStats && (teamStats.home?.MatchesList || teamStats.away?.MatchesList) && (
+        <RecentMatches
+          homeTeam={match.teamA}
+          awayTeam={match.teamB}
+          homeMatches={teamStats.home?.MatchesList ?? []}
+          awayMatches={teamStats.away?.MatchesList ?? []}
+        />
+      )}
+
     </div>
   )
 }
 
-function StatRow({ label, valA, valB, pctA, pctB }: { label: string, valA: string, valB: string, pctA: number, pctB: number }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex justify-between text-[11px] font-bold uppercase tracking-wider">
-        <span className="text-blue-600 dark:text-blue-400">{valA}</span>
-        <span className="text-[10px] text-gray-400 normal-case tracking-normal">{label}</span>
-        <span className="text-orange-600 dark:text-orange-400">{valB}</span>
-      </div>
-      <div className="flex h-2 w-full gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-        <div 
-          className="bg-blue-500 rounded-l-full" 
-          style={{ width: `${Math.max(pctA, 5)}%` }} 
-        />
-        <div 
-          className="bg-orange-500 rounded-r-full" 
-          style={{ width: `${Math.max(pctB, 5)}%` }} 
-        />
-      </div>
-    </div>
-  )
-}

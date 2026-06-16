@@ -1,21 +1,16 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAllGames, parseScorers, isLive, isFinished, getHomeScore, getAwayScore, STADIUM_INFO, WC26Game } from '@/lib/worldcup26-api'
+import { getAllMatches, getMatchDetail, getTeamForm, parseScorers, isLive, isFinished, getHomeScore, getAwayScore, getHomeTeam, getAwayTeam, getRound, getGroup, getStadiumName, getStadiumCity, FifaMatch } from '@/lib/fifa-api'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const matchId = parseInt(id)
 
-  // Fetch from our DB (predictions, user picks) — only authenticated users (has Google Account)
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
       predictions: {
-        where: {
-          user: {
-            accounts: { some: {} },
-          },
-        },
+        where: { user: { accounts: { some: {} } } },
         include: {
           user: { select: { id: true, name: true, image: true } },
         },
@@ -27,43 +22,67 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Match not found' }, { status: 404 })
   }
 
-  // Fetch live data from worldcup26.ir using getAllGames (no auth required)
-  let liveGame: WC26Game | null = null
-  try {
-    const allGames = await getAllGames()
-    liveGame = allGames.find(g => g.id === matchId.toString()) ?? null
-  } catch {
-    // If worldcup26.ir is down, just return our DB data
-  }
+  let fifaMatch: FifaMatch | null = null
+  let homeScorers: string[] = []
+  let awayScorers: string[] = []
+  let homeForm = null
+  let awayForm = null
 
-    // Merge live data with our DB data, override teams from worldcup26.ir
-  const homeTeam = liveGame?.home_team_name_en || match.teamA
-  const awayTeam = liveGame?.away_team_name_en || match.teamB
+  try {
+    const allMatches = await getAllMatches()
+    fifaMatch = allMatches.find(m => m.MatchNumber === matchId) ?? null
+
+    if (fifaMatch) {
+      const detail = await getMatchDetail(fifaMatch.IdMatch)
+      if (detail) {
+        homeScorers = parseScorers(detail.HomeTeam?.Goals ?? [], detail.HomeTeam?.Players ?? [])
+        awayScorers = parseScorers(detail.AwayTeam?.Goals ?? [], detail.AwayTeam?.Players ?? [])
+      }
+      const [hf, af] = await Promise.all([
+        getTeamForm(fifaMatch.Home?.IdTeam ?? ''),
+        getTeamForm(fifaMatch.Away?.IdTeam ?? ''),
+      ])
+      homeForm = hf
+      awayForm = af
+    }
+  } catch {}
+
+  const homeTeam = fifaMatch ? getHomeTeam(fifaMatch) : match.teamA
+  const awayTeam = fifaMatch ? getAwayTeam(fifaMatch) : match.teamB
+  const homeScore = fifaMatch ? getHomeScore(fifaMatch) : 0
+  const awayScore = fifaMatch ? getAwayScore(fifaMatch) : 0
 
   const response = {
     id: match.id,
     date: match.date,
-    round: match.round,
-    group: liveGame?.group || match.group,
+    round: fifaMatch ? getRound(fifaMatch) : match.round,
+    group: fifaMatch ? getGroup(fifaMatch) : match.group,
     stage: match.stage,
     teamA: homeTeam,
     teamB: awayTeam,
     result: match.result,
     predictions: match.predictions,
-    // Live data from worldcup26.ir
-    live: liveGame ? {
-      homeScore: getHomeScore(liveGame),
-      awayScore: getAwayScore(liveGame),
-      homeScorers: parseScorers(liveGame.home_scorers),
-      awayScorers: parseScorers(liveGame.away_scorers),
-      isLive: isLive(liveGame),
-      isFinished: isFinished(liveGame),
-      timeElapsed: liveGame.time_elapsed,
-      stadium: liveGame.stadium_id,
-      localDate: liveGame.local_date,
-      stadiumId: liveGame.stadium_id,
-      stadiumInfo: STADIUM_INFO[liveGame.stadium_id] ?? null,
-      finished: liveGame.finished,
+    teamStats: {
+      home: homeForm,
+      away: awayForm,
+    },
+    live: fifaMatch ? {
+      homeScore,
+      awayScore,
+      homeScorers,
+      awayScorers,
+      isLive: isLive(fifaMatch),
+      isFinished: isFinished(fifaMatch),
+      timeElapsed: fifaMatch.MatchTime ?? 'notstarted',
+      stadium: fifaMatch.IdMatch,
+      localDate: fifaMatch.Date,
+      stadiumId: '1',
+      stadiumInfo: {
+        name: getStadiumName(fifaMatch),
+        city: getStadiumCity(fifaMatch),
+        country: fifaMatch.Stadium?.IdCountry ?? '',
+      },
+      finished: isFinished(fifaMatch) ? 'TRUE' : 'FALSE',
     } : null,
   }
 

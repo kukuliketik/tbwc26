@@ -125,7 +125,17 @@ export default function MatchesPage() {
 
   const filtered = matches.filter((m) => m.round === activeRound)
 
-  const groupedByDate = filtered.reduce<Record<string, Match[]>>((acc, m) => {
+  const sortedMatches = [...filtered].sort((a, b) => {
+    const dateA = a.live?.localDate
+      ? parseWC26Date(a.live.localDate, a.live.stadiumId)
+      : parseMatchDate(a.date)
+    const dateB = b.live?.localDate
+      ? parseWC26Date(b.live.localDate, b.live.stadiumId)
+      : parseMatchDate(b.date)
+    return dateA.getTime() - dateB.getTime()
+  })
+
+  const groupedByDate = sortedMatches.reduce<Record<string, Match[]>>((acc, m) => {
     const d = m.live?.localDate
       ? parseWC26Date(m.live.localDate, m.live.stadiumId)
       : parseMatchDate(m.date)
@@ -136,7 +146,20 @@ export default function MatchesPage() {
   }, {})
 
   const now = new Date()
-  const nowWIB = toZonedTime(now, WIB)
+  const nextMatchId = sortedMatches.find((m) => {
+    const status = getMatchStatus(m)
+    return !status.isFinished
+  })?.id
+
+  useEffect(() => {
+    if (loading || !nextMatchId) return
+    const el = document.getElementById(`match-${nextMatchId}`)
+    if (el) {
+      const offset = 100
+      const top = el.getBoundingClientRect().top + window.scrollY - offset
+      window.scrollTo({ top, behavior: 'smooth' })
+    }
+  }, [loading, nextMatchId])
 
   return (
     <div className="page-enter space-y-6">
@@ -180,7 +203,9 @@ export default function MatchesPage() {
         </div>
       ) : (
         <div className="space-y-10">
-          {Object.entries(groupedByDate).map(([dateKey, dateMatches]) => {
+          {Object.entries(groupedByDate)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([dateKey, dateMatches]) => {
             const dateObj = parseISO(dateKey)
             return (
               <div key={dateKey}>
@@ -209,9 +234,12 @@ export default function MatchesPage() {
                     const awayScore = live?.awayScore ?? 0
                     const isScheduled = !isLive && !isFinished && matchDate > now
 
+                    const isNextMatch = match.id === nextMatchId
+
                     return (
                       <Link
                         key={match.id}
+                        id={`match-${match.id}`}
                         href={`/matches/${match.id}`}
                         className={`block bg-white dark:bg-gray-900 rounded-2xl border overflow-hidden transition-all ${
                           isLive
@@ -227,6 +255,11 @@ export default function MatchesPage() {
                             {format(matchWIB, 'EEE, MMM d')} · {format(matchWIB, 'HH:mm')} WIB
                           </span>
                           <div className="flex items-center gap-2">
+                            {isNextMatch && (
+                              <span className="text-[10px] font-bold text-white bg-wc-gold px-2 py-0.5 rounded-full">
+                                Next Match
+                              </span>
+                            )}
                             {isScheduled && (
                               <CountdownTimer targetDate={matchDate} />
                             )}

@@ -124,8 +124,14 @@ export async function getAllStadiums(): Promise<WC26Stadium[]> {
   return data?.stadiums ?? []
 }
 
-// Convert venue local_date (MM/DD/YYYY HH:mm) to UTC using stadium timezone
+// Convert local_date to UTC Date (handles both worldcup26.ir MM/DD/YYYY HH:mm and FIFA ISO format)
 export function parseWC26Date(localDate: string, stadiumId?: string): Date {
+  // FIFA API provides ISO format (e.g., "2026-06-11T13:00:00Z")
+  if (localDate.includes('T') || localDate.includes('Z')) {
+    return new Date(localDate)
+  }
+
+  // worldcup26.ir format: MM/DD/YYYY HH:mm
   const [datePart, timePart] = localDate.split(' ')
   const [month, day, year] = datePart.split('/').map(Number)
   const [hours, minutes] = timePart.split(':').map(Number)

@@ -67,8 +67,6 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
     return () => clearInterval(timer)
   }, [match.live?.isLive, matchDate.getTime()])
 
-  const winnerFlag = computedResult === 'Team A' ? getFlag(match.teamA) : computedResult === 'Team B' ? getFlag(match.teamB) : null
-  const winnerName = computedResult === 'Team A' ? match.teamA : computedResult === 'Team B' ? match.teamB : 'Draw'
   const matchDay = format(matchWIB, 'EEE, MMM d')
   const matchTime = format(matchWIB, 'HH:mm')
 
@@ -82,7 +80,7 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
           ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700 shadow-md shadow-emerald-100 dark:shadow-emerald-900/20'
           : isWrong
             ? 'bg-red-50/80 dark:bg-red-950/30 border-red-300 dark:border-red-700 shadow-md shadow-red-100 dark:shadow-red-900/20'
-            : isLocked && !match.result
+            : isLocked && !computedResult
               ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-700'
               : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
       } ${saving ? 'opacity-70' : ''}`}
@@ -113,7 +111,7 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
       )}
 
       {/* Live indicator */}
-      {isLocked && !match.result && match.live?.isLive && (
+      {isLocked && !computedResult && match.live?.isLive && (
         <div className="absolute top-3 right-3 z-10">
           <span className="flex items-center gap-1 text-[10px] font-bold text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/30 px-2 py-1 rounded-full border border-red-200 dark:border-red-800">
             <span className="w-1.5 h-1.5 bg-red-500 rounded-full live-pulse" />
@@ -142,21 +140,21 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
         <div className="flex items-stretch gap-3 mb-4">
           {/* Team A */}
           <div className={`flex-1 flex flex-col items-center justify-center text-center p-3 rounded-xl border transition-all ${
-            match.result === 'Team A'
-              ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700'
-              : match.result === 'Team B'
-                ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800'
-                : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800'
+              computedResult === 'Team A'
+                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700'
+                : computedResult === 'Team B'
+                  ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800'
+                  : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800'
           }`}>
             <span className="text-3xl mb-2">{flagA}</span>
             <span className={`text-sm font-bold leading-tight ${
-              match.result === 'Team A'
+              computedResult === 'Team A'
                 ? 'text-emerald-700 dark:text-emerald-400'
                 : 'text-gray-900 dark:text-white'
             }`}>
               {match.teamA}
             </span>
-            {match.result === 'Team A' && (
+            {computedResult === 'Team A' && (
               <span className="text-[10px] font-bold text-emerald-600 mt-1">WINNER</span>
             )}
           </div>
@@ -164,26 +162,9 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
           {/* Center - Score/Status */}
           <div className="flex items-center justify-center w-20 flex-shrink-0">
             <div className="text-center">
-              {match.result ? (
-                <div className={`inline-flex items-center justify-center rounded-xl px-3 py-2 ${
-                  match.result === 'Draw'
-                    ? 'bg-gray-100 dark:bg-gray-800'
-                    : 'bg-wc-gold/15 dark:bg-wc-gold/10'
-                }`}>
-                  <div className={`text-sm font-black ${
-                    match.result === 'Draw'
-                      ? 'text-gray-500'
-                      : 'text-wc-navy dark:text-wc-gold'
-                  }`}>
-                    {match.result === 'Draw' ? (
-                      'DRAW'
-                    ) : (
-                      <span className="flex items-center gap-1">
-                        <span className="text-sm">{winnerFlag}</span>
-                        <span className="text-xs">{winnerName}</span>
-                      </span>
-                    )}
-                  </div>
+              {computedResult ? (
+                <div className="text-xl font-black text-white">
+                  {homeScore} - {awayScore}
                 </div>
               ) : isLocked && match.live?.isLive ? (
                 <div className="flex flex-col items-center">
@@ -202,21 +183,21 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
 
           {/* Team B */}
           <div className={`flex-1 flex flex-col items-center justify-center text-center p-3 rounded-xl border transition-all ${
-            match.result === 'Team B'
+            computedResult === 'Team B'
               ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700'
-              : match.result === 'Team A'
+              : computedResult === 'Team A'
                 ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800'
                 : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800'
           }`}>
             <span className="text-3xl mb-2">{flagB}</span>
             <span className={`text-sm font-bold leading-tight ${
-              match.result === 'Team B'
+              computedResult === 'Team B'
                 ? 'text-emerald-700 dark:text-emerald-400'
                 : 'text-gray-900 dark:text-white'
             }`}>
               {match.teamB}
             </span>
-            {match.result === 'Team B' && (
+            {computedResult === 'Team B' && (
               <span className="text-[10px] font-bold text-emerald-600 mt-1">WINNER</span>
             )}
           </div>
@@ -224,32 +205,7 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
 
         {/* Prediction Section */}
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-          {match.result ? (
-            <div className="text-center">
-              {userPick ? (
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl ${
-                  isCorrect
-                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-                    : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                }`}>
-                  <span className="text-lg">{isCorrect ? '✅' : '❌'}</span>
-                  <div className="text-left">
-                    <div className="text-sm font-bold">
-                      {isCorrect ? 'Correct Prediction!' : 'Wrong Prediction'}
-                    </div>
-                    <div className="text-[10px] opacity-80">
-                      You picked: {userPick === 'Team A' ? match.teamA : userPick === 'Team B' ? match.teamB : 'Draw'}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-400 text-sm">
-                  <span>💤</span>
-                  <span>No prediction made</span>
-                </div>
-              )}
-            </div>
-          ) : (
+          {computedResult ? null : (
             <div>
               {isLocked ? (
                 <div className="text-center py-2">
