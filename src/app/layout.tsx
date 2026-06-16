@@ -3,6 +3,7 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import BottomNav from '@/components/BottomNav'
 import SessionProvider from '@/components/SessionProvider'
+import { Analytics } from '@vercel/analytics/next'
 
 export const metadata: Metadata = {
   title: 'TBWC26 — Transaction Banking World Cup 2026 Predictions Challenge',
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
           <BottomNav />
         </SessionProvider>
+        <Analytics />
       </body>
     </html>
   )
