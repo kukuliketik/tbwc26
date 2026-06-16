@@ -282,6 +282,7 @@ export default function MatchDetailPage() {
     (p) => p.homeScore !== null || p.awayScore !== null || p.cornersPick !== null
   )
   const totalExtras = extrasPredictions.length
+  const myExtras = match.predictions.find((p) => p.userId === session?.user?.id)
 
   function pickPct(team: 'Team A' | 'Team B' | 'Draw'): number {
     if (!match || totalPicks === 0) return 0
@@ -289,6 +290,25 @@ export default function MatchDetailPage() {
   }
 
   const teamStats = match.teamStats
+
+  // Actual corners result for finished matches
+  const actualCornersResult: string | null = (() => {
+    if (!isFinishedMatch || !match.matchStats) return null
+    const { home, away } = match.matchStats
+    if (home.corners > away.corners) return 'Team A'
+    if (home.corners < away.corners) return 'Team B'
+    return 'Draw'
+  })()
+
+  function isScoreCorrect(p: Prediction): boolean {
+    if (!isFinishedMatch || p.homeScore === null || p.awayScore === null) return false
+    return p.homeScore === homeScore && p.awayScore === awayScore
+  }
+
+  function isCornersCorrect(p: Prediction): boolean {
+    if (!isFinishedMatch || !actualCornersResult || !p.cornersPick) return false
+    return p.cornersPick === actualCornersResult
+  }
 
   return (
     <div className="page-enter max-w-3xl mx-auto space-y-4">
@@ -477,15 +497,31 @@ export default function MatchDetailPage() {
                   <span className="text-sm">No prediction made</span>
                 </div>
               )}
-              {(scorePick.home || scorePick.away || cornersPick) && (
+              {((scorePick.home || scorePick.away || cornersPick) && myExtras) && (
                 <div className="grid grid-cols-2 gap-3 text-center">
-                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl px-3 py-2">
+                  <div className={`rounded-xl px-3 py-2 ${
+                    isFinishedMatch
+                      ? isScoreCorrect(myExtras) ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/20'
+                      : 'bg-gray-50 dark:bg-gray-800/50'
+                  }`}>
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Predicted Score</div>
-                    <div className="text-sm font-bold text-gray-700 dark:text-gray-200">{scorePick.home || '—'} - {scorePick.away || '—'}</div>
+                    <div className={`text-sm font-bold ${
+                      isFinishedMatch
+                        ? isScoreCorrect(myExtras) ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'
+                        : 'text-gray-700 dark:text-gray-200'
+                    }`}>{scorePick.home || '—'} - {scorePick.away || '—'}</div>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl px-3 py-2">
+                  <div className={`rounded-xl px-3 py-2 ${
+                    isFinishedMatch
+                      ? isCornersCorrect(myExtras) ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/20'
+                      : 'bg-gray-50 dark:bg-gray-800/50'
+                  }`}>
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Predicted Corners</div>
-                    <div className="text-sm font-bold text-gray-700 dark:text-gray-200">
+                    <div className={`text-sm font-bold ${
+                      isFinishedMatch
+                        ? isCornersCorrect(myExtras) ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'
+                        : 'text-gray-700 dark:text-gray-200'
+                    }`}>
                       {cornersPick === 'Team A' ? match.teamA : cornersPick === 'Team B' ? match.teamB : cornersPick === 'Draw' ? 'Draw' : '—'}
                     </div>
                   </div>
@@ -645,22 +681,34 @@ export default function MatchDetailPage() {
 
           {totalExtras > 0 ? (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {extrasPredictions.map((p) => (
-                <div key={p.id} className="px-5 py-3 flex items-center gap-3">
-                  <Avatar name={p.user.name ?? '?'} image={p.user.image} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{p.user.name}</div>
+              {extrasPredictions.map((p) => {
+                const scoreOk = isScoreCorrect(p)
+                const cornersOk = isCornersCorrect(p)
+                return (
+                  <div key={p.id} className="px-5 py-3 flex items-center gap-3">
+                    <Avatar name={p.user.name ?? '?'} image={p.user.image} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{p.user.name}</div>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <span className={`px-2 py-1 rounded-md font-semibold ${
+                        isFinishedMatch
+                          ? scoreOk ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                      }`}>
+                        {p.homeScore ?? '—'} - {p.awayScore ?? '—'}
+                      </span>
+                      <span className={`px-2 py-1 rounded-md font-semibold ${
+                        isFinishedMatch
+                          ? cornersOk ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                          : 'bg-wc-gold/10 text-wc-gold'
+                      }`}>
+                        {p.cornersPick === 'Team A' ? match.teamA : p.cornersPick === 'Team B' ? match.teamB : p.cornersPick === 'Draw' ? 'Draw' : '—'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-[11px]">
-                    <span className="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 font-semibold">
-                      {p.homeScore ?? '—'} - {p.awayScore ?? '—'}
-                    </span>
-                    <span className="px-2 py-1 rounded-md bg-wc-gold/10 text-wc-gold font-semibold">
-                      {p.cornersPick === 'Team A' ? match.teamA : p.cornersPick === 'Team B' ? match.teamB : p.cornersPick === 'Draw' ? 'Draw' : '—'} corners
-                    </span>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <div className="p-8 text-center">
