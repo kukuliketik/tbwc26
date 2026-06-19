@@ -103,9 +103,11 @@ export default function ProfilePage() {
       setDbPredictions(enriched)
 
       if (walletAddress) {
+        let onChainPredictions: OnChainPrediction[] = []
         try {
           const predictionsData = await getUserOnChainPredictions(walletAddress)
-          setPredictions(predictionsData as OnChainPrediction[])
+          onChainPredictions = predictionsData as OnChainPrediction[]
+          setPredictions(onChainPredictions)
         } catch {
           setPredictions([])
         }
@@ -139,7 +141,7 @@ export default function ProfilePage() {
         }
 
         try {
-          const earned = (predictionsData as OnChainPrediction[]).reduce(
+          const earned = onChainPredictions.reduce(
             (sum, p) => sum + Number(p.rewardAmount), 0,
           )
           setTokenBalance(String(earned))
