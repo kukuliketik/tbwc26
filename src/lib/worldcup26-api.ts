@@ -211,7 +211,7 @@ export function sortScorersByTeam(
     const lowerHome = homeTeam.toLowerCase()
     const lowerAway = awayTeam.toLowerCase()
 
-    let cleaned = raw
+    const cleaned = raw
       .replace(/[{}"]/g, '')
       .replace(/\d+['′]?\s*$/, '')
       .replace(new RegExp(`\\b${homeTeam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), '')

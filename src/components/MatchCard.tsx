@@ -54,18 +54,15 @@ export default function MatchCard({ match, userPick, saving, onPick }: Props) {
   const isCorrect = computedResult && userPick === computedResult
   const isWrong = computedResult && userPick && userPick !== computedResult
 
-  const [elapsed, setElapsed] = useState(() => {
-    if (!match.live?.isLive) return 0
-    return Math.floor((Date.now() - matchDate.getTime()) / 60000)
-  })
+  const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
     if (!match.live?.isLive) return
-    const timer = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - matchDate.getTime()) / 60000))
-    }, 30000)
+    const update = () => setElapsed(Math.floor((Date.now() - matchDate.getTime()) / 60000))
+    update()
+    const timer = setInterval(update, 30000)
     return () => clearInterval(timer)
-  }, [match.live?.isLive, matchDate.getTime()])
+  }, [match.live?.isLive, matchDate])
 
   const matchDay = format(matchWIB, 'EEE, MMM d')
   const matchTime = format(matchWIB, 'HH:mm')

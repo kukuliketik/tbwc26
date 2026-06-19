@@ -34,7 +34,7 @@ export default function CountdownTimer({ targetDate, onComplete }: CountdownTime
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
+    const raf = requestAnimationFrame(() => setMounted(true))
     const timer = setInterval(() => {
       const newTimeLeft = calculateTimeLeft(targetDate)
       setTimeLeft(newTimeLeft)

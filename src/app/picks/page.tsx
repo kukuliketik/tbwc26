@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation'
 import MatchCard from '@/components/MatchCard'
 import { useToast } from '@/components/Toast'
 import { parseWC26Date } from '@/lib/worldcup26-api'
+import { useBlockchainPrediction } from '@/hooks/useBlockchainPrediction'
+import BlockchainBadge from '@/components/BlockchainBadge'
 
 interface LiveGameData {
   homeScore: number
@@ -52,6 +54,7 @@ export default function PicksPage() {
   const [savingIds, setSavingIds] = useState<Set<number>>(new Set())
   const now = useMemo(() => new Date(), [])
   const hasScrolledRef = useRef(false)
+  const { submitOnChain } = useBlockchainPrediction()
 
   useEffect(() => {
     async function load() {
@@ -98,6 +101,15 @@ export default function PicksPage() {
       })
       if (!res.ok) throw new Error()
       addToast('Prediction saved!', 'success')
+      if (match) {
+        submitOnChain({
+          userId: session?.user?.id ?? '',
+          matchId,
+          pick,
+          teamA: match.teamA,
+          teamB: match.teamB,
+        })
+      }
     } catch {
       setPredictions((prev) => {
         const next = { ...prev }
@@ -177,7 +189,10 @@ export default function PicksPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Your Predictions</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-white">Your Predictions</h1>
+            <BlockchainBadge />
+          </div>
           <p className="text-sm text-white/60 mt-1">Pick the winner for every match</p>
         </div>
         <div className="flex items-center gap-3">

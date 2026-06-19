@@ -10,6 +10,7 @@ export async function GET() {
 
   const predictions = await prisma.prediction.findMany({
     where: { userId: session.user.id },
+    include: { match: true },
   })
 
   return NextResponse.json(predictions)

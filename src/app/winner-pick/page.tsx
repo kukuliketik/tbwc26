@@ -53,10 +53,7 @@ export default function WinnerPickPage() {
   }, [])
 
   useEffect(() => {
-    if (!session?.user) {
-      setLoading(false)
-      return
-    }
+    if (!session?.user) return
     fetch('/api/winner-pick')
       .then((res) => res.json())
       .then((data) => {

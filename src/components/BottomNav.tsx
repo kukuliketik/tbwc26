@@ -8,6 +8,7 @@ const links = [
   { href: '/picks', label: 'Picks', icon: '⚽' },
   { href: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
   { href: '/matches', label: 'Schedule', icon: '📅' },
+  { href: '/profile', label: 'Profile', icon: '👤' },
 ]
 
 export default function BottomNav() {

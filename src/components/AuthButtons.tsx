@@ -2,6 +2,7 @@
 
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { useState } from 'react'
+import Link from 'next/link'
 import Avatar from './Avatar'
 
 export default function AuthButtons() {
@@ -30,6 +31,14 @@ export default function AuthButtons() {
                 <p className="text-sm font-bold text-white">{session.user.name}</p>
                 <p className="text-xs text-white/60 mt-0.5">{session.user.email}</p>
               </div>
+              <Link
+                href="/profile"
+                onClick={() => setMenuOpen(false)}
+                className="w-full flex items-center gap-2 text-white/80 hover:text-white hover:bg-white/10 px-4 py-2.5 text-sm transition-colors"
+              >
+                <span>👤</span>
+                Profile
+              </Link>
               <div className="p-3">
                 <button
                   onClick={() => { setMenuOpen(false); signOut() }}
