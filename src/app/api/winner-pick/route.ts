@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+const PICK_DEADLINE = new Date('2026-06-22T00:00:00')
+
 export async function GET() {
   try {
     const session = await auth()
@@ -25,6 +27,13 @@ export async function POST(request: NextRequest) {
     const session = await auth()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (new Date() >= PICK_DEADLINE) {
+      return NextResponse.json(
+        { error: 'Voting is closed. The deadline has passed.' },
+        { status: 403 }
+      )
     }
 
     const body = await request.json()

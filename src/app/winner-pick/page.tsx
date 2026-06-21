@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react'
 import { getFlag } from '@/lib/flags'
 import Avatar from '@/components/Avatar'
 
+const PICK_DEADLINE = new Date('2026-06-22T00:00:00')
+
 const ALL_TEAMS = [
   'Mexico', 'South Africa', 'South Korea', 'Czech Republic',
   'Canada', 'Bosnia and Herzegovina', 'Qatar', 'Switzerland',
@@ -43,6 +45,7 @@ export default function WinnerPickPage() {
   const [stats, setStats] = useState<Stats[]>([])
   const [statsLoading, setStatsLoading] = useState(true)
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null)
+  const [isLocked] = useState(() => new Date() >= PICK_DEADLINE)
 
   useEffect(() => {
     fetch('/api/winner-pick/stats')
@@ -145,6 +148,16 @@ export default function WinnerPickPage() {
         <p className="text-sm text-white/60">
           Choose one team to win it all — your pick is final and cannot be changed.
         </p>
+        {!isLocked && (
+          <p className="text-xs text-wc-gold mt-2">
+            ⏰ Voting closes on June 22, 2026 at midnight
+          </p>
+        )}
+        {isLocked && (
+          <p className="text-xs text-wc-red mt-2">
+            🔒 Voting has closed
+          </p>
+        )}
       </div>
 
       {/* Stats Section */}
@@ -273,6 +286,19 @@ export default function WinnerPickPage() {
                   </div>
                 </div>
               )}
+            </div>
+          ) : isLocked ? (
+            /* Locked state - voting closed */
+            <div className="text-center py-8">
+              <div className="text-6xl mb-4">🔒</div>
+              <h3 className="text-xl font-bold text-white mb-2">Voting is Closed</h3>
+              <p className="text-sm text-white/60 mb-4">
+                The deadline for champion picks has passed.
+              </p>
+              <div className="inline-flex items-center gap-2 bg-wc-red/20 text-wc-red text-xs font-semibold px-4 py-2 rounded-full border border-wc-red/30">
+                <span className="w-2 h-2 bg-wc-red rounded-full" />
+                DEADLINE PASSED
+              </div>
             </div>
           ) : (
             /* Selection state */
