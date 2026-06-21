@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { matchId, pick, homeScore, awayScore, cornersPick } = body
+  const { matchId, pick, homeScore, awayScore, cornersPick, goalScorer } = body
 
   if (!matchId) {
     return NextResponse.json({ error: 'matchId is required' }, { status: 400 })
@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       homeScore: toNullableInt(homeScore),
       awayScore: toNullableInt(awayScore),
       ...(cornersPick !== undefined && { cornersPick }),
+      ...(goalScorer !== undefined && { goalScorer: goalScorer || null }),
     },
     create: {
       userId: session.user.id,
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
       homeScore: toNullableInt(homeScore),
       awayScore: toNullableInt(awayScore),
       cornersPick: cornersPick ?? null,
+      goalScorer: goalScorer || null,
     },
   })
 

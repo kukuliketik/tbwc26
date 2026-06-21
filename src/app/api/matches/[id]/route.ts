@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAllMatches, getMatchDetail, getTeamForm, parseScorers, isLive, isFinished, getHomeScore, getAwayScore, getHomeTeam, getAwayTeam, getRound, getGroup, getStadiumName, getStadiumCity, FifaMatch } from '@/lib/fifa-api'
+import { getAllMatches, getMatchDetail, getTeamForm, getTeamSquad, parseScorers, isLive, isFinished, getHomeScore, getAwayScore, getHomeTeam, getAwayTeam, getRound, getGroup, getStadiumName, getStadiumCity, FifaMatch } from '@/lib/fifa-api'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -27,25 +27,34 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   let awayScorers: string[] = []
   let homeForm = null
   let awayForm = null
+  let homePlayers: { id: string; name: string; shirtNumber: number }[] = []
+  let awayPlayers: { id: string; name: string; shirtNumber: number }[] = []
 
   try {
     const allMatches = await getAllMatches()
     fifaMatch = allMatches.find(m => m.MatchNumber === matchId) ?? null
 
     if (fifaMatch) {
-      const detail = await getMatchDetail(fifaMatch.IdMatch)
-      if (detail) {
-        const homePlayers = detail.HomeTeam?.Players ?? []
-        const awayPlayers = detail.AwayTeam?.Players ?? []
-        const homeTeamId = fifaMatch.Home?.IdTeam ?? ''
-        const awayTeamId = fifaMatch.Away?.IdTeam ?? ''
-        homeScorers = parseScorers(detail.HomeTeam?.Goals ?? [], homePlayers, awayPlayers, homeTeamId, awayTeamId)
-        awayScorers = parseScorers(detail.AwayTeam?.Goals ?? [], homePlayers, awayPlayers, homeTeamId, awayTeamId)
-      }
-      const [hf, af] = await Promise.all([
-        getTeamForm(fifaMatch.Home?.IdTeam ?? ''),
-        getTeamForm(fifaMatch.Away?.IdTeam ?? ''),
+      const homeTeamId = fifaMatch.Home?.IdTeam ?? ''
+      const awayTeamId = fifaMatch.Away?.IdTeam ?? ''
+
+      const [detail, hf, af, homeSquad, awaySquad] = await Promise.all([
+        getMatchDetail(fifaMatch.IdMatch),
+        getTeamForm(homeTeamId),
+        getTeamForm(awayTeamId),
+        getTeamSquad(homeTeamId),
+        getTeamSquad(awayTeamId),
       ])
+
+      if (detail) {
+        const detailHomePlayers = detail.HomeTeam?.Players ?? []
+        const detailAwayPlayers = detail.AwayTeam?.Players ?? []
+        homeScorers = parseScorers(detail.HomeTeam?.Goals ?? [], detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
+        awayScorers = parseScorers(detail.AwayTeam?.Goals ?? [], detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
+      }
+
+      homePlayers = homeSquad
+      awayPlayers = awaySquad
       homeForm = hf
       awayForm = af
     }
@@ -88,6 +97,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       },
       finished: isFinished(fifaMatch) ? 'TRUE' : 'FALSE',
     } : null,
+    homePlayers,
+    awayPlayers,
   }
 
   return NextResponse.json(response)

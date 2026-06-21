@@ -11,6 +11,7 @@ import CountdownTimer from '@/components/CountdownTimer'
 import RecentMatches from '@/components/RecentMatches'
 import MatchInsights from '@/components/MatchInsights'
 import MatchStats from '@/components/MatchStats'
+import SearchableSelect from '@/components/SearchableSelect'
 import { useToast } from '@/components/Toast'
 
 interface UserInfo {
@@ -27,6 +28,7 @@ interface Prediction {
   homeScore: number | null
   awayScore: number | null
   cornersPick: string | null
+  goalScorer: string | null
   user: UserInfo
 }
 
@@ -72,6 +74,8 @@ interface MatchDetail {
   live: LiveGameData | null
   teamStats?: { home: TeamStats | null; away: TeamStats | null } | null
   matchStats?: MatchStats | null
+  homePlayers: { id: string; name: string; shirtNumber: number }[]
+  awayPlayers: { id: string; name: string; shirtNumber: number }[]
 }
 
 const ONE_HOUR_MS = 60 * 60 * 1000
@@ -114,6 +118,7 @@ export default function MatchDetailPage() {
   const [userPick, setUserPick] = useState<string | null>(null)
   const [scorePick, setScorePick] = useState<{ home: string; away: string }>({ home: '', away: '' })
   const [cornersPick, setCornersPick] = useState<string | null>(null)
+  const [goalScorer, setGoalScorer] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [savingExtras, setSavingExtras] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -146,6 +151,7 @@ export default function MatchDetailPage() {
           setUserPick(myPred.pick)
           setScorePick({ home: myPred.homeScore?.toString() ?? '', away: myPred.awayScore?.toString() ?? '' })
           setCornersPick(myPred.cornersPick)
+          setGoalScorer(myPred.goalScorer)
         }
         // Load stats in parallel so the main page renders fast
         loadStats(data)
@@ -173,6 +179,7 @@ export default function MatchDetailPage() {
           if (refreshedPred && !savingExtras) {
             setScorePick({ home: refreshedPred.homeScore?.toString() ?? '', away: refreshedPred.awayScore?.toString() ?? '' })
             setCornersPick(refreshedPred.cornersPick)
+            setGoalScorer(refreshedPred.goalScorer)
           }
         }
       } catch {
@@ -232,14 +239,15 @@ export default function MatchDetailPage() {
           homeScore: scorePick.home,
           awayScore: scorePick.away,
           cornersPick,
+          goalScorer,
         }),
       })
       if (!res.ok) throw new Error()
-      addToast('Score & corner predictions saved!', 'success')
+      addToast('Score, corners & goal scorer predictions saved!', 'success')
       const reloadRes = await fetch(`/api/matches/${id}`)
       if (reloadRes.ok) setMatch(await reloadRes.json())
     } catch {
-      addToast('Failed to save score & corners', 'error')
+      addToast('Failed to save predictions', 'error')
     } finally {
       setSavingExtras(false)
     }
@@ -279,7 +287,7 @@ export default function MatchDetailPage() {
   const drawPredictions = match.predictions.filter((p) => p.pick === 'Draw')
   const totalPicks = match.predictions.length
   const extrasPredictions = match.predictions.filter(
-    (p) => p.homeScore !== null || p.awayScore !== null || p.cornersPick !== null
+    (p) => p.homeScore != null || p.awayScore != null || p.cornersPick != null || p.goalScorer != null
   )
   const totalExtras = extrasPredictions.length
   const myExtras = match.predictions.find((p) => p.userId === session?.user?.id)
@@ -308,6 +316,49 @@ export default function MatchDetailPage() {
   function isCornersCorrect(p: Prediction): boolean {
     if (!isFinishedMatch || !actualCornersResult || !p.cornersPick) return false
     return p.cornersPick === actualCornersResult
+  }
+
+  function countPlayerGoals(playerName: string, scorers: string[]): number {
+    if (!playerName || !scorers.length) return 0
+    const name = playerName.toUpperCase().replace(/\s+/g, ' ').trim()
+    return scorers.filter((s) => {
+      const scorerName = s.toUpperCase().replace(/ \(OG\)/, '').replace(/\s+\d+.*$/, '').replace(/\s+$/, '').trim()
+      return scorerName === name
+    }).length
+  }
+
+  function isScorerCorrect(p: Prediction): boolean {
+    if (!isFinishedMatch || !p.goalScorer || !live) return false
+    const goals = countPlayerGoals(p.goalScorer, [...live.homeScorers, ...live.awayScorers])
+    return goals > 0
+  }
+
+  function scorerGoals(p: Prediction): number {
+    if (!isFinishedMatch || !p.goalScorer || !live) return 0
+    return countPlayerGoals(p.goalScorer, [...live.homeScorers, ...live.awayScorers])
+  }
+
+  function calcSimPoints(p: Prediction): number {
+    if (!isFinishedMatch) return 0
+    let pts = 0
+    // Score
+    if (p.homeScore !== null && p.awayScore !== null) {
+      pts += (p.homeScore === homeScore && p.awayScore === awayScore) ? 2 : -2
+    }
+    // Corners
+    if (p.cornersPick && actualCornersResult) {
+      pts += (p.cornersPick === actualCornersResult) ? 1 : -1
+    }
+    // Goal scorer
+    if (p.goalScorer && live) {
+      const goals = countPlayerGoals(p.goalScorer, [...live.homeScorers, ...live.awayScorers])
+      if (goals > 0) {
+        pts += goals * 2
+      } else {
+        pts -= 2
+      }
+    }
+    return pts
   }
 
   return (
@@ -466,7 +517,7 @@ export default function MatchDetailPage() {
 
       {/* ===== PREDICTION SECTION — authenticated users only ===== */}
       {session?.user && (
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800">
         <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
             {isFinishedMatch ? 'Your Prediction' : isLiveMatch ? 'Your Prediction' : 'Pick Your Winner'}
@@ -497,34 +548,64 @@ export default function MatchDetailPage() {
                   <span className="text-sm">No prediction made</span>
                 </div>
               )}
-              {((scorePick.home || scorePick.away || cornersPick) && myExtras) && (
-                <div className="grid grid-cols-2 gap-3 text-center">
-                  <div className={`rounded-xl px-3 py-2 ${
-                    isFinishedMatch
-                      ? isScoreCorrect(myExtras) ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/20'
-                      : 'bg-gray-50 dark:bg-gray-800/50'
-                  }`}>
-                    <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Predicted Score</div>
-                    <div className={`text-sm font-bold ${
+              {((scorePick.home || scorePick.away || cornersPick || goalScorer) && myExtras) && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className={`rounded-xl px-3 py-2 ${
                       isFinishedMatch
-                        ? isScoreCorrect(myExtras) ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'
-                        : 'text-gray-700 dark:text-gray-200'
-                    }`}>{scorePick.home || '—'} - {scorePick.away || '—'}</div>
-                  </div>
-                  <div className={`rounded-xl px-3 py-2 ${
-                    isFinishedMatch
-                      ? isCornersCorrect(myExtras) ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/20'
-                      : 'bg-gray-50 dark:bg-gray-800/50'
-                  }`}>
-                    <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Predicted Corners</div>
-                    <div className={`text-sm font-bold ${
-                      isFinishedMatch
-                        ? isCornersCorrect(myExtras) ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'
-                        : 'text-gray-700 dark:text-gray-200'
+                        ? isScoreCorrect(myExtras) ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/20'
+                        : 'bg-gray-50 dark:bg-gray-800/50'
                     }`}>
-                      {cornersPick === 'Team A' ? match.teamA : cornersPick === 'Team B' ? match.teamB : cornersPick === 'Draw' ? 'Draw' : '—'}
+                      <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Predicted Score</div>
+                      <div className={`text-sm font-bold ${
+                        isFinishedMatch
+                          ? isScoreCorrect(myExtras) ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'
+                          : 'text-gray-700 dark:text-gray-200'
+                      }`}>{scorePick.home || '—'} - {scorePick.away || '—'}</div>
+                    </div>
+                    <div className={`rounded-xl px-3 py-2 ${
+                      isFinishedMatch
+                        ? isCornersCorrect(myExtras) ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/20'
+                        : 'bg-gray-50 dark:bg-gray-800/50'
+                    }`}>
+                      <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Predicted Corners</div>
+                      <div className={`text-sm font-bold ${
+                        isFinishedMatch
+                          ? isCornersCorrect(myExtras) ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'
+                          : 'text-gray-700 dark:text-gray-200'
+                      }`}>
+                        {cornersPick === 'Team A' ? match.teamA : cornersPick === 'Team B' ? match.teamB : cornersPick === 'Draw' ? 'Draw' : '—'}
+                      </div>
+                    </div>
+                    <div className={`rounded-xl px-3 py-2 ${
+                      isFinishedMatch
+                        ? isScorerCorrect(myExtras) ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/20'
+                        : 'bg-gray-50 dark:bg-gray-800/50'
+                    }`}>
+                      <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Goal Scorer</div>
+                      <div className={`text-sm font-bold truncate ${
+                        isFinishedMatch
+                          ? isScorerCorrect(myExtras) ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'
+                          : 'text-gray-700 dark:text-gray-200'
+                      }`}>
+                        {goalScorer || '—'}
+                        {isFinishedMatch && isScorerCorrect(myExtras) && scorerGoals(myExtras) > 1 && (
+                          <span className="text-[10px] ml-0.5">×{scorerGoals(myExtras)}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  {isFinishedMatch && myExtras && (
+                    <div className={`text-center text-xs font-bold py-2 rounded-lg ${
+                      calcSimPoints(myExtras) > 0
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+                        : calcSimPoints(myExtras) < 0
+                          ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+                    }`}>
+                      Sim Points: {calcSimPoints(myExtras) > 0 ? '+' : ''}{calcSimPoints(myExtras)}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -545,7 +626,28 @@ export default function MatchDetailPage() {
 
               {/* ===== SCORE & CORNERS PREDICTION (slim) ===== */}
               <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Predict Score & Corners</div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Predict Score & Corners</div>
+                  <div className="relative group">
+                    <button className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex items-center justify-center text-[10px] font-bold hover:bg-wc-gold/20 hover:text-wc-gold transition-colors">
+                      ?
+                    </button>
+                    <div className="invisible group-hover:visible absolute left-0 top-full mt-1 z-50 w-64 p-3 rounded-xl bg-gray-900 dark:bg-gray-800 text-white text-[11px] leading-relaxed shadow-xl border border-gray-700">
+                      <div className="font-bold text-wc-gold mb-1.5">Booster Points (Simulated)</div>
+                      <div className="space-y-1 text-gray-300">
+                        <div className="flex justify-between"><span>Correct Score</span><span className="text-emerald-400 font-semibold">+2</span></div>
+                        <div className="flex justify-between"><span>Wrong Score</span><span className="text-red-400 font-semibold">-2</span></div>
+                        <div className="flex justify-between"><span>Correct Corner</span><span className="text-emerald-400 font-semibold">+1</span></div>
+                        <div className="flex justify-between"><span>Wrong Corner</span><span className="text-red-400 font-semibold">-1</span></div>
+                        <div className="flex justify-between"><span>Correct Scorer</span><span className="text-emerald-400 font-semibold">+2/goal</span></div>
+                        <div className="flex justify-between"><span>Wrong Scorer</span><span className="text-red-400 font-semibold">-2</span></div>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-gray-700 text-yellow-300/80 text-[10px]">
+                        ⚠️ Wrong predictions reduce your leaderboard total.
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <span className="text-xs text-gray-500 dark:text-gray-400">Full-time score</span>
@@ -581,13 +683,26 @@ export default function MatchDetailPage() {
                       disabled={isLocked}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">First/Any goal scorer (pick 1 player)</span>
+                    <SearchableSelect
+                      groups={[
+                        { label: match.teamA, items: match.homePlayers },
+                        { label: match.teamB, items: match.awayPlayers },
+                      ]}
+                      value={goalScorer}
+                      onChange={setGoalScorer}
+                      disabled={isLocked}
+                      placeholder="Search player by name or number..."
+                    />
+                  </div>
                 </div>
                 <button
                   onClick={handleSaveExtras}
                   disabled={isLocked || savingExtras}
                   className="mt-4 w-full py-2 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-bold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 transition-opacity"
                 >
-                  {savingExtras ? 'Saving...' : 'Save Score & Corners'}
+                  {savingExtras ? 'Saving...' : 'Save Score, Corners & Goal Scorer'}
                 </button>
               </div>
             </div>
@@ -672,25 +787,49 @@ export default function MatchDetailPage() {
 
       {/* ===== SCORE & CORNER PREDICTIONS — authenticated users only ===== */}
       {session?.user && (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden relative">
+          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-              Score & Corner Predictions {totalExtras > 0 && <span className="font-normal">({totalExtras})</span>}
+              Score, Corner & Goal Scorer Predictions {totalExtras > 0 && <span className="font-normal">({totalExtras})</span>}
             </h3>
+            <div className="relative group">
+              <button className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex items-center justify-center text-[10px] font-bold hover:bg-wc-gold/20 hover:text-wc-gold transition-colors">
+                ?
+              </button>
+              <div className="invisible group-hover:visible absolute left-0 top-full mt-1 z-50 w-64 p-3 rounded-xl bg-gray-900 dark:bg-gray-800 text-white text-[11px] leading-relaxed shadow-xl border border-gray-700">
+                <div className="font-bold text-wc-gold mb-1.5">Booster Points (Simulated)</div>
+                <div className="space-y-1 text-gray-300">
+                  <div className="flex justify-between"><span>Correct Score</span><span className="text-emerald-400 font-semibold">+2</span></div>
+                  <div className="flex justify-between"><span>Wrong Score</span><span className="text-red-400 font-semibold">-2</span></div>
+                  <div className="flex justify-between"><span>Correct Corner</span><span className="text-emerald-400 font-semibold">+1</span></div>
+                  <div className="flex justify-between"><span>Wrong Corner</span><span className="text-red-400 font-semibold">-1</span></div>
+                  <div className="flex justify-between"><span>Correct Scorer</span><span className="text-emerald-400 font-semibold">+2/goal</span></div>
+                  <div className="flex justify-between"><span>Wrong Scorer</span><span className="text-red-400 font-semibold">-2</span></div>
+                </div>
+                <div className="mt-2 pt-2 border-t border-gray-700 text-yellow-300/80 text-[10px]">
+                  ⚠️ Wrong predictions reduce your leaderboard total.
+                </div>
+              </div>
+            </div>
           </div>
 
           {totalExtras > 0 ? (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {extrasPredictions.map((p) => {
+              {(isFinishedMatch
+                ? [...extrasPredictions].sort((a, b) => calcSimPoints(b) - calcSimPoints(a))
+                : extrasPredictions
+              ).map((p) => {
                 const scoreOk = isScoreCorrect(p)
                 const cornersOk = isCornersCorrect(p)
+                const scorerOk = isScorerCorrect(p)
+                const pts = calcSimPoints(p)
                 return (
                   <div key={p.id} className="px-5 py-3 flex items-center gap-3">
                     <Avatar name={p.user.name ?? '?'} image={p.user.image} size="sm" />
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{p.user.name}</div>
                     </div>
-                    <div className="flex items-center gap-2 text-[11px]">
+                    <div className="flex items-center gap-1.5 text-[11px] flex-wrap justify-end">
                       <span className={`px-2 py-1 rounded-md font-semibold ${
                         isFinishedMatch
                           ? scoreOk ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
@@ -705,6 +844,24 @@ export default function MatchDetailPage() {
                       }`}>
                         {p.cornersPick === 'Team A' ? match.teamA : p.cornersPick === 'Team B' ? match.teamB : p.cornersPick === 'Draw' ? 'Draw' : '—'}
                       </span>
+                      {p.goalScorer && (
+                        <span className={`px-2 py-1 rounded-md font-semibold ${
+                          isFinishedMatch
+                            ? scorerOk ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                        }`}>
+                          ⚽ {p.goalScorer}{scorerOk && scorerGoals(p) > 1 ? ` ×${scorerGoals(p)}` : ''}
+                        </span>
+                      )}
+                      {isFinishedMatch && (
+                        <span className={`px-2 py-1 rounded-md font-bold text-[10px] ${
+                          pts > 0 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                            : pts < 0 ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+                        }`}>
+                          {pts > 0 ? '+' : ''}{pts}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )
@@ -713,7 +870,7 @@ export default function MatchDetailPage() {
           ) : (
             <div className="p-8 text-center">
               <div className="text-3xl mb-2">🎯</div>
-              <p className="text-sm text-gray-500">No score or corner predictions yet.</p>
+              <p className="text-sm text-gray-500">No score, corner or goal scorer predictions yet.</p>
             </div>
           )}
         </div>

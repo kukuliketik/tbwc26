@@ -372,3 +372,39 @@ export function deriveStatsFromTimeline(
     away: stats[awayTeamId],
   }
 }
+
+export interface TeamSquadPlayer {
+  id: string
+  name: string
+  shirtNumber: number
+}
+
+export async function getTeamSquad(teamId: string): Promise<TeamSquadPlayer[]> {
+  if (!teamId) return []
+  const now = Date.now()
+  const cacheKey = `squad_${teamId}`
+  const cached = _detailCache[cacheKey] as { data: TeamSquadPlayer[]; expiry: number } | undefined
+  if (cached && cached.expiry > now) return cached.data
+
+  try {
+    const url = `${BASE_URL}/teams/${teamId}/squad?idSeason=${SEASON_ID}&idCompetition=${COMPETITION_ID}&language=en`
+    const res = await fetch(url, { next: { revalidate: 0 } })
+    if (!res.ok) return cached?.data ?? []
+    const json = await res.json()
+    const players: TeamSquadPlayer[] = (json.Players ?? []).map((p: {
+      IdPlayer: string
+      JerseyNum: number
+      PlayerName?: { Locale: string; Description: string }[]
+      ShortName?: { Locale: string; Description: string }[]
+    }) => ({
+      id: p.IdPlayer,
+      name: p.ShortName?.[0]?.Description || p.PlayerName?.[0]?.Description || 'Unknown',
+      shirtNumber: p.JerseyNum ?? 0,
+    }))
+    _detailCache[cacheKey] = { data: players, expiry: now + CACHE_TTL }
+    return players
+  } catch (err) {
+    console.error('FIFA team squad fetch failed:', err)
+    return cached?.data ?? []
+  }
+}
