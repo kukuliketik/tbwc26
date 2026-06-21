@@ -71,12 +71,12 @@ export default function SearchableSelect({ groups, value, onChange, placeholder 
   }, [value, groups])
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative min-w-0">
       <button
         type="button"
         disabled={disabled}
         onClick={() => { if (!disabled) setOpen(!open) }}
-        className={`w-full text-left text-sm font-medium px-3 py-2 rounded-lg border transition-colors ${
+        className={`w-full min-w-0 text-left text-sm font-medium px-3 py-2 rounded-lg border transition-colors ${
           open
             ? 'border-wc-gold ring-2 ring-wc-gold/50'
             : 'border-gray-200 dark:border-gray-700'

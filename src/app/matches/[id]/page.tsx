@@ -362,7 +362,7 @@ export default function MatchDetailPage() {
   }
 
   return (
-    <div className="page-enter max-w-3xl mx-auto space-y-4">
+    <div className="page-enter max-w-3xl mx-auto space-y-4 overflow-hidden">
       {/* Back button */}
       <button
         onClick={() => router.back()}
