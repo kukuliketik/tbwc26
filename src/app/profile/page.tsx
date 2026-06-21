@@ -350,7 +350,7 @@ export default function ProfilePage() {
               rel="noopener noreferrer"
               className="text-[10px] font-mono text-wc-teal hover:underline"
             >
-              View on Polygonscan →
+              View Source on Sourcify →
             </a>
           </div>
 
