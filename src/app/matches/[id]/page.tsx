@@ -156,7 +156,17 @@ export default function MatchDetailPage() {
           setScorePick({ home: myPred.homeScore?.toString() ?? '', away: myPred.awayScore?.toString() ?? '' })
           setCornersPick(myPred.cornersPick)
           setGoalScorer(myPred.goalScorer)
-          setGoalScorerId(myPred.goalScorerId)
+          if (myPred.goalScorerId) {
+            setGoalScorerId(myPred.goalScorerId)
+          } else if (myPred.goalScorer) {
+            const allPlayers = [...data.homePlayers, ...data.awayPlayers]
+            const predictedLast = myPred.goalScorer.toUpperCase().trim().split(' ').pop() ?? ''
+            const found = allPlayers.find((p) => {
+              const playerLast = p.name.toUpperCase().trim().split(' ').pop() ?? ''
+              return playerLast === predictedLast && playerLast.length > 2
+            })
+            if (found) setGoalScorerId(found.id)
+          }
         }
         // Load stats in parallel so the main page renders fast
         loadStats(data)
@@ -185,7 +195,9 @@ export default function MatchDetailPage() {
             setScorePick({ home: refreshedPred.homeScore?.toString() ?? '', away: refreshedPred.awayScore?.toString() ?? '' })
             setCornersPick(refreshedPred.cornersPick)
             setGoalScorer(refreshedPred.goalScorer)
-            setGoalScorerId(refreshedPred.goalScorerId)
+            if (refreshedPred.goalScorerId) {
+              setGoalScorerId(refreshedPred.goalScorerId)
+            }
           }
         }
       } catch {
@@ -330,7 +342,12 @@ export default function MatchDetailPage() {
     const name = playerName.toUpperCase().replace(/\s+/g, ' ').trim()
     return scorers.filter((s) => {
       const scorerName = s.toUpperCase().replace(/ \(OG\)/, '').replace(/\s+\d+.*$/, '').replace(/\s+$/, '').trim()
-      return scorerName === name
+      if (scorerName === name) return true
+      const scorerParts = scorerName.split(' ')
+      const scorerLast = scorerParts[scorerParts.length - 1]
+      const nameParts = name.split(' ')
+      const nameLast = nameParts[nameParts.length - 1]
+      return scorerLast === nameLast && scorerLast.length > 2
     }).length
   }
 
