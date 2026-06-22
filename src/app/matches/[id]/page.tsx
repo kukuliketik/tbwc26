@@ -29,6 +29,7 @@ interface Prediction {
   awayScore: number | null
   cornersPick: string | null
   goalScorer: string | null
+  goalScorerId: string | null
   user: UserInfo
 }
 
@@ -37,6 +38,8 @@ interface LiveGameData {
   awayScore: number
   homeScorers: string[]
   awayScorers: string[]
+  homeScorerIds: string[]
+  awayScorerIds: string[]
   isLive: boolean
   isFinished: boolean
   timeElapsed: string
@@ -119,6 +122,7 @@ export default function MatchDetailPage() {
   const [scorePick, setScorePick] = useState<{ home: string; away: string }>({ home: '', away: '' })
   const [cornersPick, setCornersPick] = useState<string | null>(null)
   const [goalScorer, setGoalScorer] = useState<string | null>(null)
+  const [goalScorerId, setGoalScorerId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [savingExtras, setSavingExtras] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -152,6 +156,7 @@ export default function MatchDetailPage() {
           setScorePick({ home: myPred.homeScore?.toString() ?? '', away: myPred.awayScore?.toString() ?? '' })
           setCornersPick(myPred.cornersPick)
           setGoalScorer(myPred.goalScorer)
+          setGoalScorerId(myPred.goalScorerId)
         }
         // Load stats in parallel so the main page renders fast
         loadStats(data)
@@ -180,6 +185,7 @@ export default function MatchDetailPage() {
             setScorePick({ home: refreshedPred.homeScore?.toString() ?? '', away: refreshedPred.awayScore?.toString() ?? '' })
             setCornersPick(refreshedPred.cornersPick)
             setGoalScorer(refreshedPred.goalScorer)
+            setGoalScorerId(refreshedPred.goalScorerId)
           }
         }
       } catch {
@@ -240,6 +246,7 @@ export default function MatchDetailPage() {
           awayScore: scorePick.away,
           cornersPick,
           goalScorer,
+          goalScorerId,
         }),
       })
       if (!res.ok) throw new Error()
@@ -327,14 +334,28 @@ export default function MatchDetailPage() {
     }).length
   }
 
+  function countScorerGoalsById(scorerIds: string[], targetId: string | null): number {
+    if (!targetId || !scorerIds.length) return 0
+    return scorerIds.filter((id) => id === targetId).length
+  }
+
   function isScorerCorrect(p: Prediction): boolean {
-    if (!isFinishedMatch || !p.goalScorer || !live) return false
-    const goals = countPlayerGoals(p.goalScorer, [...live.homeScorers, ...live.awayScorers])
-    return goals > 0
+    if (!isFinishedMatch || !live) return false
+    const allScorerIds = [...(live.homeScorerIds ?? []), ...(live.awayScorerIds ?? [])]
+    if (p.goalScorerId) {
+      return countScorerGoalsById(allScorerIds, p.goalScorerId) > 0
+    }
+    if (!p.goalScorer) return false
+    return countPlayerGoals(p.goalScorer, [...live.homeScorers, ...live.awayScorers]) > 0
   }
 
   function scorerGoals(p: Prediction): number {
-    if (!isFinishedMatch || !p.goalScorer || !live) return 0
+    if (!isFinishedMatch || !live) return 0
+    const allScorerIds = [...(live.homeScorerIds ?? []), ...(live.awayScorerIds ?? [])]
+    if (p.goalScorerId) {
+      return countScorerGoalsById(allScorerIds, p.goalScorerId)
+    }
+    if (!p.goalScorer) return 0
     return countPlayerGoals(p.goalScorer, [...live.homeScorers, ...live.awayScorers])
   }
 
@@ -350,8 +371,11 @@ export default function MatchDetailPage() {
       pts += (p.cornersPick === actualCornersResult) ? 1 : -1
     }
     // Goal scorer
-    if (p.goalScorer && live) {
-      const goals = countPlayerGoals(p.goalScorer, [...live.homeScorers, ...live.awayScorers])
+    if (p.goalScorerId || p.goalScorer) {
+      const allScorerIds = [...(live.homeScorerIds ?? []), ...(live.awayScorerIds ?? [])]
+      const goals = p.goalScorerId
+        ? countScorerGoalsById(allScorerIds, p.goalScorerId)
+        : countPlayerGoals(p.goalScorer!, [...live.homeScorers, ...live.awayScorers])
       if (goals > 0) {
         pts += goals * 2
       } else {
@@ -692,6 +716,7 @@ export default function MatchDetailPage() {
                       ]}
                       value={goalScorer}
                       onChange={setGoalScorer}
+                      onSelect={(player) => setGoalScorerId(player?.id ?? null)}
                       disabled={isLocked}
                       placeholder="Search player by name or number..."
                     />

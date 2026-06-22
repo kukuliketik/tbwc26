@@ -17,11 +17,12 @@ interface SearchableSelectProps {
   groups: Group[]
   value: string | null
   onChange: (value: string | null) => void
+  onSelect?: (player: Player | null) => void
   placeholder?: string
   disabled?: boolean
 }
 
-export default function SearchableSelect({ groups, value, onChange, placeholder = 'Select a player...', disabled }: SearchableSelectProps) {
+export default function SearchableSelect({ groups, value, onChange, onSelect, placeholder = 'Select a player...', disabled }: SearchableSelectProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -137,6 +138,7 @@ export default function SearchableSelect({ groups, value, onChange, placeholder 
                       type="button"
                       onClick={() => {
                         onChange(player.name)
+                        onSelect?.(player)
                         setOpen(false)
                         setQuery('')
                       }}
@@ -162,7 +164,7 @@ export default function SearchableSelect({ groups, value, onChange, placeholder 
             <div className="p-2 border-t border-gray-100 dark:border-gray-700">
               <button
                 type="button"
-                onClick={() => { onChange(null); setOpen(false); setQuery('') }}
+                onClick={() => { onChange(null); onSelect?.(null); setOpen(false); setQuery('') }}
                 className="w-full py-1.5 text-xs font-medium text-gray-500 hover:text-red-500 transition-colors"
               >
                 Clear selection

@@ -86,7 +86,8 @@ model Prediction {
   homeScore   Int?
   awayScore   Int?
   cornersPick String?
-  goalScorer  String?
+  goalScorer   String?
+  goalScorerId String?
   storeTxHash String?
   settleTxHash String?
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAllMatches, getMatchDetail, getTeamForm, getTeamSquad, parseScorers, isLive, isFinished, getHomeScore, getAwayScore, getHomeTeam, getAwayTeam, getRound, getGroup, getStadiumName, getStadiumCity, FifaMatch } from '@/lib/fifa-api'
+import { getAllMatches, getMatchDetail, getTeamForm, getTeamSquad, parseScorers, parseScorerIds, isLive, isFinished, getHomeScore, getAwayScore, getHomeTeam, getAwayTeam, getRound, getGroup, getStadiumName, getStadiumCity, FifaMatch } from '@/lib/fifa-api'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -25,6 +25,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   let fifaMatch: FifaMatch | null = null
   let homeScorers: string[] = []
   let awayScorers: string[] = []
+  let homeScorerIds: string[] = []
+  let awayScorerIds: string[] = []
   let homeForm = null
   let awayForm = null
   let homePlayers: { id: string; name: string; shirtNumber: number }[] = []
@@ -51,6 +53,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         const detailAwayPlayers = detail.AwayTeam?.Players ?? []
         homeScorers = parseScorers(detail.HomeTeam?.Goals ?? [], detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
         awayScorers = parseScorers(detail.AwayTeam?.Goals ?? [], detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
+        homeScorerIds = parseScorerIds(detail.HomeTeam?.Goals ?? [])
+        awayScorerIds = parseScorerIds(detail.AwayTeam?.Goals ?? [])
       }
 
       homePlayers = homeSquad
@@ -84,6 +88,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       awayScore,
       homeScorers,
       awayScorers,
+      homeScorerIds,
+      awayScorerIds,
       isLive: isLive(fifaMatch),
       isFinished: isFinished(fifaMatch),
       timeElapsed: fifaMatch.MatchTime ?? 'notstarted',
@@ -102,4 +108,21 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   return NextResponse.json(response)
+}
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const matchId = parseInt(id)
+  const body = await request.json()
+
+  if (!body.result) {
+    return NextResponse.json({ error: 'result is required' }, { status: 400 })
+  }
+
+  const match = await prisma.match.update({
+    where: { id: matchId },
+    data: { result: body.result },
+  })
+
+  return NextResponse.json({ id: match.id, result: match.result })
 }

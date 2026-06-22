@@ -237,6 +237,10 @@ export function parseScorers(
   })
 }
 
+export function parseScorerIds(goals: FifaGoal[]): string[] {
+  return goals.map((g) => g.IdPlayer)
+}
+
 export async function getMatchDetail(idMatch: string): Promise<FifaMatchDetail | null> {
   const now = Date.now()
   const cached = _detailCache[idMatch]
