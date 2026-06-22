@@ -18,10 +18,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     },
   })
 
-  if (!match) {
-    return NextResponse.json({ error: 'Match not found' }, { status: 404 })
-  }
-
   let fifaMatch: FifaMatch | null = null
   let homeScorers: string[] = []
   let awayScorers: string[] = []
@@ -64,21 +60,25 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     }
   } catch {}
 
-  const homeTeam = fifaMatch ? getHomeTeam(fifaMatch) : match.teamA
-  const awayTeam = fifaMatch ? getAwayTeam(fifaMatch) : match.teamB
+  if (!match && !fifaMatch) {
+    return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+  }
+
+  const homeTeam = fifaMatch ? getHomeTeam(fifaMatch) : match?.teamA ?? 'TBD'
+  const awayTeam = fifaMatch ? getAwayTeam(fifaMatch) : match?.teamB ?? 'TBD'
   const homeScore = fifaMatch ? getHomeScore(fifaMatch) : 0
   const awayScore = fifaMatch ? getAwayScore(fifaMatch) : 0
 
   const response = {
-    id: match.id,
-    date: match.date,
-    round: fifaMatch ? getRound(fifaMatch) : match.round,
-    group: fifaMatch ? getGroup(fifaMatch) : match.group,
-    stage: match.stage,
+    id: matchId,
+    date: match?.date ?? fifaMatch?.Date ?? new Date().toISOString(),
+    round: fifaMatch ? getRound(fifaMatch) : match?.round ?? '',
+    group: fifaMatch ? getGroup(fifaMatch) : match?.group ?? null,
+    stage: match?.stage ?? 'Group Stage',
     teamA: homeTeam,
     teamB: awayTeam,
-    result: match.result,
-    predictions: match.predictions,
+    result: match?.result ?? null,
+    predictions: match?.predictions ?? [],
     teamStats: {
       home: homeForm,
       away: awayForm,
