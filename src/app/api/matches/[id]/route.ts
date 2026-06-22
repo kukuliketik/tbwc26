@@ -6,17 +6,23 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params
   const matchId = parseInt(id)
 
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
-    include: {
-      predictions: {
-        where: { user: { accounts: { some: {} } } },
-        include: {
-          user: { select: { id: true, name: true, image: true } },
+  let match: Awaited<ReturnType<typeof prisma.match.findUnique>> = null
+
+  try {
+    match = await prisma.match.findUnique({
+      where: { id: matchId },
+      include: {
+        predictions: {
+          where: { user: { accounts: { some: {} } } },
+          include: {
+            user: { select: { id: true, name: true, image: true } },
+          },
         },
       },
-    },
-  })
+    })
+  } catch (e) {
+    console.error('Prisma query failed:', e)
+  }
 
   let fifaMatch: FifaMatch | null = null
   let homeScorers: string[] = []
