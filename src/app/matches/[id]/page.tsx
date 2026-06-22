@@ -670,10 +670,10 @@ export default function MatchDetailPage() {
                 <div className="flex items-center gap-2 mb-3">
                   <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Predict Score & Corners</div>
                   <div className="relative group">
-                    <button className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex items-center justify-center text-[10px] font-bold hover:bg-wc-gold/20 hover:text-wc-gold transition-colors">
+                    <button className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex items-center justify-center text-[10px] font-bold hover:bg-wc-gold/20 hover:text-wc-gold focus:bg-wc-gold/20 focus:text-wc-gold transition-colors">
                       ?
                     </button>
-                    <div className="invisible group-hover:visible absolute left-0 top-full mt-1 z-50 w-64 p-3 rounded-xl bg-gray-900 dark:bg-gray-800 text-white text-[11px] leading-relaxed shadow-xl border border-gray-700">
+                    <div className="invisible group-hover:visible group-focus-within:visible absolute left-0 top-full mt-1 z-50 w-64 p-3 rounded-xl bg-gray-900 dark:bg-gray-800 text-white text-[11px] leading-relaxed shadow-xl border border-gray-700">
                       <div className="font-bold text-wc-gold mb-1.5">Booster Points (Simulated)</div>
                       <div className="space-y-1 text-gray-300">
                         <div className="flex justify-between"><span>Correct Score</span><span className="text-emerald-400 font-semibold">+2</span></div>
@@ -835,10 +835,10 @@ export default function MatchDetailPage() {
               Score, Corner & Goal Scorer Predictions {totalExtras > 0 && <span className="font-normal">({totalExtras})</span>}
             </h3>
             <div className="relative group">
-              <button className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex items-center justify-center text-[10px] font-bold hover:bg-wc-gold/20 hover:text-wc-gold transition-colors">
+              <button className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex items-center justify-center text-[10px] font-bold hover:bg-wc-gold/20 hover:text-wc-gold focus:bg-wc-gold/20 focus:text-wc-gold transition-colors">
                 ?
               </button>
-              <div className="invisible group-hover:visible absolute left-0 top-full mt-1 z-50 w-64 p-3 rounded-xl bg-gray-900 dark:bg-gray-800 text-white text-[11px] leading-relaxed shadow-xl border border-gray-700">
+              <div className="invisible group-hover:visible group-focus-within:visible absolute left-0 top-full mt-1 z-50 w-64 p-3 rounded-xl bg-gray-900 dark:bg-gray-800 text-white text-[11px] leading-relaxed shadow-xl border border-gray-700">
                 <div className="font-bold text-wc-gold mb-1.5">Booster Points (Simulated)</div>
                 <div className="space-y-1 text-gray-300">
                   <div className="flex justify-between"><span>Correct Score</span><span className="text-emerald-400 font-semibold">+2</span></div>
