@@ -84,7 +84,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     teamA: homeTeam,
     teamB: awayTeam,
     result: match?.result ?? null,
-    predictions: match?.predictions ?? [],
+    predictions: (match && 'predictions' in match) ? match.predictions : [],
     teamStats: {
       home: homeForm,
       away: awayForm,
