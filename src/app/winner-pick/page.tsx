@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { getFlag } from '@/lib/flags'
 import Avatar from '@/components/Avatar'
 
-const PICK_DEADLINE = new Date('2026-06-22T00:00:00')
+const PICK_DEADLINE = new Date('2026-06-22T23:59:59')
 
 const ALL_TEAMS = [
   'Mexico', 'South Africa', 'South Korea', 'Czech Republic',
