@@ -388,7 +388,7 @@ export default function MatchDetailPage() {
       pts += (p.cornersPick === actualCornersResult) ? 1 : -1
     }
     // Goal scorer
-    if (p.goalScorerId || p.goalScorer) {
+    if (live && (p.goalScorerId || p.goalScorer)) {
       const allScorerIds = [...(live.homeScorerIds ?? []), ...(live.awayScorerIds ?? [])]
       const goals = p.goalScorerId
         ? countScorerGoalsById(allScorerIds, p.goalScorerId)
