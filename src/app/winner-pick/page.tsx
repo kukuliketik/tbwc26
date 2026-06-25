@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { getFlag } from '@/lib/flags'
 import Avatar from '@/components/Avatar'
 
-const PICK_DEADLINE = new Date('2026-06-22T23:59:59')
+const PICK_DEADLINE = new Date('2026-06-28T23:59:59')
 
 const ALL_TEAMS = [
   'Mexico', 'South Africa', 'South Korea', 'Czech Republic',
@@ -150,7 +150,7 @@ export default function WinnerPickPage() {
         </p>
         {!isLocked && (
           <p className="text-xs text-wc-gold mt-2">
-            ⏰ Voting closes on June 22, 2026 at midnight
+            ⏰ Voting closes on June 28, 2026 at midnight
           </p>
         )}
         {isLocked && (

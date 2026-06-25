@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-const PICK_DEADLINE = new Date('2026-06-22T23:59:59')
+const PICK_DEADLINE = new Date('2026-06-28T23:59:59')
 
 export async function GET() {
   try {
