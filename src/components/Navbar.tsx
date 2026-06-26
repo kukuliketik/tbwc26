@@ -7,6 +7,7 @@ import AuthButtons from './AuthButtons'
 const links = [
   { href: '/', label: 'Home', icon: '🏠' },
   { href: '/picks', label: 'Picks', icon: '⚽' },
+  { href: '/golden-boot', label: 'Golden Boot', icon: '🥇' },
   { href: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
   { href: '/matches', label: 'Schedule', icon: '📅' },
   { href: '/profile', label: 'Profile', icon: '👤' },
