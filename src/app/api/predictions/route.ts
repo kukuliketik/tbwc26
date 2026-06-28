@@ -29,11 +29,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'matchId is required' }, { status: 400 })
   }
 
-  if (pick !== undefined && !['Team A', 'Team B', 'Draw'].includes(pick)) {
+  if (pick && !['Team A', 'Team B', 'Draw', 'Pending'].includes(pick)) {
     return NextResponse.json({ error: 'pick must be "Team A", "Team B", or "Draw"' }, { status: 400 })
   }
 
-  if (cornersPick !== undefined && !['Team A', 'Team B', 'Draw'].includes(cornersPick)) {
+  if (cornersPick && !['Team A', 'Team B', 'Draw'].includes(cornersPick)) {
     return NextResponse.json({ error: 'cornersPick must be "Team A", "Team B", or "Draw"' }, { status: 400 })
   }
 
@@ -59,8 +59,8 @@ export async function POST(request: NextRequest) {
     },
     update: {
       ...(pick !== undefined && { pick }),
-      homeScore: toNullableInt(homeScore),
-      awayScore: toNullableInt(awayScore),
+      ...(homeScore !== undefined && { homeScore: toNullableInt(homeScore) }),
+      ...(awayScore !== undefined && { awayScore: toNullableInt(awayScore) }),
       ...(cornersPick !== undefined && { cornersPick }),
       ...(goalScorer !== undefined && { goalScorer: goalScorer || null }),
       ...(goalScorerId !== undefined && { goalScorerId: goalScorerId || null }),
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     create: {
       userId: session.user.id,
       matchId,
-      pick: pick ?? '',
+      pick: pick ?? 'Pending',
       homeScore: toNullableInt(homeScore),
       awayScore: toNullableInt(awayScore),
       cornersPick: cornersPick ?? null,

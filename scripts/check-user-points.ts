@@ -14,6 +14,15 @@ interface FifaMatch {
   Away: { Score: number; TeamName: { Description: string }[] } | null
 }
 
+const KNOCKOUT_ROUNDS = new Set([
+  'Round of 32',
+  'Round of 16',
+  'Quarterfinal',
+  'Semifinal',
+  'Third Place',
+  'Final',
+])
+
 async function getAllMatches(): Promise<FifaMatch[]> {
   const url = `${BASE_URL}/calendar/matches?count=104&idSeason=${SEASON_ID}&idCompetition=${COMPETITION_ID}&language=en&from=2026-06-01T00:00:00Z&to=2026-08-01T00:00:00Z`
   const res = await fetch(url)
@@ -92,6 +101,8 @@ async function checkUserPoints(userId: string) {
       const teamA = fifa?.Home?.TeamName?.[0]?.Description ?? pred.match.teamA
       const teamB = fifa?.Away?.TeamName?.[0]?.Description ?? pred.match.teamB
 
+      const isKnockout = KNOCKOUT_ROUNDS.has(pred.match.round)
+
       details.push({
         matchId: pred.matchId,
         teamA,
@@ -99,7 +110,7 @@ async function checkUserPoints(userId: string) {
         result,
         pick: pred.pick,
         correct,
-        points: correct ? 1 : 0,
+        points: correct ? (isKnockout ? 2 : 1) : 0,
         source,
       })
     }
@@ -136,7 +147,7 @@ async function checkUserPoints(userId: string) {
   console.log(`Total Predictions: ${user.predictions.length}`)
   console.log(`Finished Matches: ${totalFinished}`)
   console.log(`Correct Picks: ${correctCount}`)
-  console.log(`Points: ${correctCount}`)
+  console.log(`Points: ${details.reduce((sum, d) => sum + d.points, 0)}`)
   console.log(`Accuracy: ${totalFinished > 0 ? ((correctCount / totalFinished) * 100).toFixed(1) : 0}%`)
 }
 

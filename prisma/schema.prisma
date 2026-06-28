@@ -45,6 +45,7 @@ model User {
   predictions     Prediction[]
   winnerPick      WinnerPick?
   goldenBootPick  GoldenBootPick?
+  pointLogs       PointAuditLog[]
   walletAddress   String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -77,6 +78,7 @@ model Match {
   teamB       String
   result      String?
   predictions Prediction[]
+  pointLogs   PointAuditLog[]
 }
 
 model Prediction {
@@ -107,4 +109,21 @@ model GoldenBootPick {
   createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PointAuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  matchId   Int
+  category  String   // "prediction" | "score" | "corner" | "scorer"
+  points    Int      // positive = award, negative = deduction
+  detail    String   // e.g. "Correct Score: 2-1" or "Wrong Corner pick"
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([matchId])
+  @@unique([userId, matchId, category])
 }

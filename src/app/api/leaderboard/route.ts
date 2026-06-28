@@ -4,6 +4,15 @@ import { getAllMatches, isFinished, getHomeScore, getAwayScore, FifaMatch } from
 
 export const dynamic = 'force-dynamic'
 
+const KNOCKOUT_ROUNDS = new Set([
+  'Round of 32',
+  'Round of 16',
+  'Quarterfinal',
+  'Semifinal',
+  'Third Place',
+  'Final',
+])
+
 export async function GET() {
   // Fetch live scores to compute results
   const fifaByMatchNum: Map<number, FifaMatch> = new Map()
@@ -38,15 +47,26 @@ export async function GET() {
 
   const leaderboard = users
     .map((user) => {
-      const finishedPredictions = user.predictions.filter(
+      // Only count predictions with an actual winner pick (not 'Pending')
+      const predictionsWithPick = user.predictions.filter(
+        (p) => p.pick && p.pick !== 'Pending'
+      )
+      const finishedPredictions = predictionsWithPick.filter(
         (p) => getResult(p.match) !== null
       )
       const totalFinished = finishedPredictions.length
       const correctPredictions = finishedPredictions.filter(
         (p) => p.pick === getResult(p.match)
-      ).length
-      const points = correctPredictions
-      const accuracy = totalFinished > 0 ? (correctPredictions / totalFinished) * 100 : 0
+      )
+
+      // Group Stage = 1pt, Knockout (R32+) = 2pts
+      let points = 0
+      for (const p of correctPredictions) {
+        const isKnockout = KNOCKOUT_ROUNDS.has(p.match.round)
+        points += isKnockout ? 2 : 1
+      }
+
+      const accuracy = totalFinished > 0 ? (correctPredictions.length / totalFinished) * 100 : 0
 
       return {
         userId: user.id,
@@ -54,7 +74,7 @@ export async function GET() {
         email: user.email,
         image: user.image,
         points,
-        correctPredictions,
+        correctPredictions: correctPredictions.length,
         totalPredictions: user.predictions.length,
         totalFinished,
         accuracy: Math.round(accuracy * 100) / 100,

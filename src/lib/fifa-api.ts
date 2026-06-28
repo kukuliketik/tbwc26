@@ -241,6 +241,27 @@ export function parseScorerIds(goals: FifaGoal[]): string[] {
   return goals.map((g) => g.IdPlayer)
 }
 
+// Filter goals to only regular time (Period 1 = first half, Period 2 = second half)
+// Extra time (Period 3, 4) and penalties are excluded
+export function filterRegularTimeGoals(goals: FifaGoal[]): FifaGoal[] {
+  return goals.filter((g) => g.Period === 1 || g.Period === 2)
+}
+
+// Get the 90-minute score from match detail (excludes extra time goals)
+export function get90MinScore(detail: FifaMatchDetail): { home: number; away: number } {
+  const homeGoals = filterRegularTimeGoals(detail.HomeTeam?.Goals ?? [])
+  const awayGoals = filterRegularTimeGoals(detail.AwayTeam?.Goals ?? [])
+  return { home: homeGoals.length, away: awayGoals.length }
+}
+
+// Get the 90-minute result: 'Team A', 'Team B', or 'Draw'
+export function get90MinResult(detail: FifaMatchDetail): string {
+  const { home, away } = get90MinScore(detail)
+  if (home > away) return 'Team A'
+  if (home < away) return 'Team B'
+  return 'Draw'
+}
+
 export async function getMatchDetail(idMatch: string): Promise<FifaMatchDetail | null> {
   const now = Date.now()
   const cached = _detailCache[idMatch]

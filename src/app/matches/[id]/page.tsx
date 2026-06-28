@@ -379,22 +379,22 @@ export default function MatchDetailPage() {
   function calcSimPoints(p: Prediction): number {
     if (!isFinishedMatch) return 0
     let pts = 0
-    // Score
+    // Score: +3 correct, -1 wrong
     if (p.homeScore !== null && p.awayScore !== null) {
-      pts += (p.homeScore === homeScore && p.awayScore === awayScore) ? 2 : -2
+      pts += (p.homeScore === homeScore && p.awayScore === awayScore) ? 3 : -1
     }
-    // Corners
+    // Corners: +2 correct, -1 wrong
     if (p.cornersPick && actualCornersResult) {
-      pts += (p.cornersPick === actualCornersResult) ? 1 : -1
+      pts += (p.cornersPick === actualCornersResult) ? 2 : -1
     }
-    // Goal scorer
+    // Goal scorer: +4 per goal, -2 wrong
     if (live && (p.goalScorerId || p.goalScorer)) {
       const allScorerIds = [...(live.homeScorerIds ?? []), ...(live.awayScorerIds ?? [])]
       const goals = p.goalScorerId
         ? countScorerGoalsById(allScorerIds, p.goalScorerId)
         : countPlayerGoals(p.goalScorer!, [...live.homeScorers, ...live.awayScorers])
       if (goals > 0) {
-        pts += goals * 2
+        pts += goals * 4
       } else {
         pts -= 2
       }
@@ -676,11 +676,11 @@ export default function MatchDetailPage() {
                     <div className="invisible group-hover:visible group-focus-within:visible absolute left-0 top-full mt-1 z-50 w-64 p-3 rounded-xl bg-gray-900 dark:bg-gray-800 text-white text-[11px] leading-relaxed shadow-xl border border-gray-700">
                       <div className="font-bold text-wc-gold mb-1.5">Booster Points (Simulated)</div>
                       <div className="space-y-1 text-gray-300">
-                        <div className="flex justify-between"><span>Correct Score</span><span className="text-emerald-400 font-semibold">+2</span></div>
-                        <div className="flex justify-between"><span>Wrong Score</span><span className="text-red-400 font-semibold">-2</span></div>
-                        <div className="flex justify-between"><span>Correct Corner</span><span className="text-emerald-400 font-semibold">+1</span></div>
+                        <div className="flex justify-between"><span>Correct Score</span><span className="text-emerald-400 font-semibold">+3</span></div>
+                        <div className="flex justify-between"><span>Wrong Score</span><span className="text-red-400 font-semibold">-1</span></div>
+                        <div className="flex justify-between"><span>Correct Corner</span><span className="text-emerald-400 font-semibold">+2</span></div>
                         <div className="flex justify-between"><span>Wrong Corner</span><span className="text-red-400 font-semibold">-1</span></div>
-                        <div className="flex justify-between"><span>Correct Scorer</span><span className="text-emerald-400 font-semibold">+2/goal</span></div>
+                        <div className="flex justify-between"><span>Correct Scorer</span><span className="text-emerald-400 font-semibold">+4/goal</span></div>
                         <div className="flex justify-between"><span>Wrong Scorer</span><span className="text-red-400 font-semibold">-2</span></div>
                       </div>
                       <div className="mt-2 pt-2 border-t border-gray-700 text-yellow-300/80 text-[10px]">
@@ -726,17 +726,27 @@ export default function MatchDetailPage() {
                   </div>
                   <div className="space-y-2">
                     <span className="text-xs text-gray-500 dark:text-gray-400">First/Any goal scorer (pick 1 player)</span>
-                    <SearchableSelect
-                      groups={[
-                        { label: match.teamA, items: match.homePlayers },
-                        { label: match.teamB, items: match.awayPlayers },
-                      ]}
-                      value={goalScorer}
-                      onChange={setGoalScorer}
-                      onSelect={(player) => setGoalScorerId(player?.id ?? null)}
-                      disabled={isLocked}
-                      placeholder="Search player by name or number..."
-                    />
+                    {(() => {
+                      const excludedPlayers = ['mbappe', 'haaland', 'halland', 'messi', 'ronaldo', 'vini', 'vinicius']
+                      const filterPlayers = (players: { id: string; name: string; shirtNumber: number }[]) =>
+                        players.filter((p) => {
+                          const nameLower = p.name.toLowerCase()
+                          return !excludedPlayers.some((ex) => nameLower.includes(ex))
+                        })
+                      return (
+                        <SearchableSelect
+                          groups={[
+                            { label: match.teamA, items: filterPlayers(match.homePlayers) },
+                            { label: match.teamB, items: filterPlayers(match.awayPlayers) },
+                          ]}
+                          value={goalScorer}
+                          onChange={setGoalScorer}
+                          onSelect={(player) => setGoalScorerId(player?.id ?? null)}
+                          disabled={isLocked}
+                          placeholder="Search player by name or number..."
+                        />
+                      )
+                    })()}
                   </div>
                 </div>
                 <button
@@ -841,11 +851,11 @@ export default function MatchDetailPage() {
               <div className="invisible group-hover:visible group-focus-within:visible absolute left-0 top-full mt-1 z-50 w-64 p-3 rounded-xl bg-gray-900 dark:bg-gray-800 text-white text-[11px] leading-relaxed shadow-xl border border-gray-700">
                 <div className="font-bold text-wc-gold mb-1.5">Booster Points (Simulated)</div>
                 <div className="space-y-1 text-gray-300">
-                  <div className="flex justify-between"><span>Correct Score</span><span className="text-emerald-400 font-semibold">+2</span></div>
-                  <div className="flex justify-between"><span>Wrong Score</span><span className="text-red-400 font-semibold">-2</span></div>
-                  <div className="flex justify-between"><span>Correct Corner</span><span className="text-emerald-400 font-semibold">+1</span></div>
+                  <div className="flex justify-between"><span>Correct Score</span><span className="text-emerald-400 font-semibold">+3</span></div>
+                  <div className="flex justify-between"><span>Wrong Score</span><span className="text-red-400 font-semibold">-1</span></div>
+                  <div className="flex justify-between"><span>Correct Corner</span><span className="text-emerald-400 font-semibold">+2</span></div>
                   <div className="flex justify-between"><span>Wrong Corner</span><span className="text-red-400 font-semibold">-1</span></div>
-                  <div className="flex justify-between"><span>Correct Scorer</span><span className="text-emerald-400 font-semibold">+2/goal</span></div>
+                  <div className="flex justify-between"><span>Correct Scorer</span><span className="text-emerald-400 font-semibold">+4/goal</span></div>
                   <div className="flex justify-between"><span>Wrong Scorer</span><span className="text-red-400 font-semibold">-2</span></div>
                 </div>
                 <div className="mt-2 pt-2 border-t border-gray-700 text-yellow-300/80 text-[10px]">

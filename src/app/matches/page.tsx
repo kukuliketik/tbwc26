@@ -87,7 +87,7 @@ function getMatchStatus(match: Match): { isLive: boolean; isFinished: boolean; l
 export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeRound, setActiveRound] = useState('Group Stage')
+  const [activeRound, setActiveRound] = useState('Round of 32')
 
   useEffect(() => {
     async function load() {
@@ -153,13 +153,16 @@ export default function MatchesPage() {
 
   useEffect(() => {
     if (loading || !nextMatchId) return
-    const el = document.getElementById(`match-${nextMatchId}`)
-    if (el) {
-      const offset = 100
-      const top = el.getBoundingClientRect().top + window.scrollY - offset
-      window.scrollTo({ top, behavior: 'smooth' })
-    }
-  }, [loading, nextMatchId])
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`match-${nextMatchId}`)
+      if (el) {
+        const offset = 100
+        const top = el.getBoundingClientRect().top + window.scrollY - offset
+        window.scrollTo({ top, behavior: 'smooth' })
+      }
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [loading, nextMatchId, activeRound])
 
   return (
     <div className="page-enter space-y-6">

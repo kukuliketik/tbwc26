@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAllMatches, getMatchDetail, getTeamForm, getTeamSquad, parseScorers, parseScorerIds, isLive, isFinished, getHomeScore, getAwayScore, getHomeTeam, getAwayTeam, getRound, getGroup, getStadiumName, getStadiumCity, FifaMatch } from '@/lib/fifa-api'
+import { getAllMatches, getMatchDetail, getTeamForm, getTeamSquad, parseScorers, parseScorerIds, filterRegularTimeGoals, get90MinScore, isLive, isFinished, getHomeScore, getAwayScore, getHomeTeam, getAwayTeam, getRound, getGroup, getStadiumName, getStadiumCity, FifaMatch, FifaMatchDetail } from '@/lib/fifa-api'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -25,6 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   let fifaMatch: FifaMatch | null = null
+  let matchDetail: FifaMatchDetail | null = null
   let homeScorers: string[] = []
   let awayScorers: string[] = []
   let homeScorerIds: string[] = []
@@ -50,13 +51,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         getTeamSquad(awayTeamId),
       ])
 
+      matchDetail = detail
+
       if (detail) {
         const detailHomePlayers = detail.HomeTeam?.Players ?? []
         const detailAwayPlayers = detail.AwayTeam?.Players ?? []
-        homeScorers = parseScorers(detail.HomeTeam?.Goals ?? [], detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
-        awayScorers = parseScorers(detail.AwayTeam?.Goals ?? [], detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
-        homeScorerIds = parseScorerIds(detail.HomeTeam?.Goals ?? [])
-        awayScorerIds = parseScorerIds(detail.AwayTeam?.Goals ?? [])
+        // Use only regular time goals (90 minutes) - exclude extra time
+        const homeGoals = filterRegularTimeGoals(detail.HomeTeam?.Goals ?? [])
+        const awayGoals = filterRegularTimeGoals(detail.AwayTeam?.Goals ?? [])
+        homeScorers = parseScorers(homeGoals, detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
+        awayScorers = parseScorers(awayGoals, detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
+        homeScorerIds = parseScorerIds(homeGoals)
+        awayScorerIds = parseScorerIds(awayGoals)
       }
 
       homePlayers = homeSquad
@@ -72,8 +78,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const homeTeam = fifaMatch ? getHomeTeam(fifaMatch) : match?.teamA ?? 'TBD'
   const awayTeam = fifaMatch ? getAwayTeam(fifaMatch) : match?.teamB ?? 'TBD'
-  const homeScore = fifaMatch ? getHomeScore(fifaMatch) : 0
-  const awayScore = fifaMatch ? getAwayScore(fifaMatch) : 0
+
+  // Use 90-minute scores when available (excludes extra time for knockout matches)
+  let homeScore = fifaMatch ? getHomeScore(fifaMatch) : 0
+  let awayScore = fifaMatch ? getAwayScore(fifaMatch) : 0
+  if (matchDetail) {
+    const score90 = get90MinScore(matchDetail)
+    homeScore = score90.home
+    awayScore = score90.away
+  }
 
   const response = {
     id: matchId,

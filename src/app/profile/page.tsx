@@ -3,12 +3,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { useWeb3Auth } from '@/components/Web3AuthProvider'
 import {
-  getUserOnChainPredictions,
-  getUnclaimedRewards,
-  hashPrediction,
-  submitStorePredictionTxWithWallet,
+  getUserTokenBalance,
   getUserPOLBalance,
   getSwapRate,
   swapPREDForPOL,
@@ -35,20 +33,6 @@ interface Match {
   live?: LiveGameData | null
 }
 
-interface OnChainPrediction {
-  predictionHash: string
-  userId: string
-  matchId: bigint
-  matchName: string
-  predictionSummary: string
-  timestamp: bigint
-  submitter: string
-  isCorrect: boolean
-  isSettled: boolean
-  rewardTier: number
-  rewardAmount: bigint
-}
-
 interface DbPrediction {
   id: string
   userId: string
@@ -63,22 +47,18 @@ interface DbPrediction {
 export default function ProfilePage() {
   const { data: session, status } = useSession()
   const { wallet, address, connecting, connect } = useWeb3Auth()
-  const [predictions, setPredictions] = useState<OnChainPrediction[]>([])
   const [dbPredictions, setDbPredictions] = useState<DbPrediction[]>([])
   const [matches, setMatches] = useState<Match[]>([])
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [tokenBalance, setTokenBalance] = useState<string>('0')
-  const [unclaimedRewards, setUnclaimedRewards] = useState<string>('0')
-  const [claiming, setClaiming] = useState(false)
-  const [syncing, setSyncing] = useState(false)
   const [polBalance, setPolBalance] = useState<string>('0')
   const [swapRate, setSwapRate] = useState<string>('0')
   const [contractPolBalance, setContractPolBalance] = useState<string>('0')
   const [swapAmount, setSwapAmount] = useState<string>('')
   const [swapping, setSwapping] = useState(false)
   const [fauceting, setFauceting] = useState(false)
-  const [txHashes, setTxHashes] = useState<Record<number, { storeTxHash?: string; settleTxHash?: string }>>({})
+  const [predFauceting, setPredFauceting] = useState(false)
 
   const walletAddress = address
 
@@ -96,27 +76,18 @@ export default function ProfilePage() {
       const enriched = dbRes.map((p) => {
         const match = matchesMap.get(p.matchId)
         if (match) {
-          return { ...p, match: { ...p.match, teamA: match.teamA, teamB: match.teamB, date: match.date } }
+          return { ...p, match: { ...p.match, teamA: match.teamA, teamB: match.teamB, date: match.date, result: match.result } }
         }
         return p
       })
       setDbPredictions(enriched)
 
       if (walletAddress) {
-        let onChainPredictions: OnChainPrediction[] = []
         try {
-          const predictionsData = await getUserOnChainPredictions(walletAddress)
-          onChainPredictions = predictionsData as OnChainPrediction[]
-          setPredictions(onChainPredictions)
+          const bal = await getUserTokenBalance(walletAddress)
+          setTokenBalance(bal)
         } catch {
-          setPredictions([])
-        }
-
-        try {
-          const unclaimed = await getUnclaimedRewards(walletAddress)
-          setUnclaimedRewards(unclaimed)
-        } catch {
-          setUnclaimedRewards('0')
+          setTokenBalance('0')
         }
 
         try {
@@ -139,23 +110,6 @@ export default function ProfilePage() {
         } catch {
           setContractPolBalance('0')
         }
-
-        try {
-          const earned = onChainPredictions.reduce(
-            (sum, p) => sum + Number(p.rewardAmount), 0,
-          )
-          setTokenBalance(String(earned))
-        } catch {
-          setTokenBalance('0')
-        }
-
-        try {
-          const txRes = await fetch('/api/predictions/txhashes', { method: 'POST' })
-          const txData = await txRes.json()
-          setTxHashes(txData)
-        } catch {
-          setTxHashes({})
-        }
       }
     } catch {
       // silently fail
@@ -165,86 +119,10 @@ export default function ProfilePage() {
   }, [walletAddress])
 
   useEffect(() => {
-    if (!walletAddress) return
+    // loadData is async and only updates state after data fetching; suppress strict rule
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData()
-  }, [walletAddress, loadData])
-
-  const getSyncableMatch = (): DbPrediction | null => {
-    const liveMatch = matches.find((m) => m.live?.isLive && !m.live?.isFinished)
-    if (liveMatch) {
-      const dbPred = dbPredictions.find((p) => p.matchId === liveMatch.id)
-      if (dbPred) return dbPred
-    }
-
-    const endedMatches = matches
-      .filter((m) => m.live?.isFinished || m.result)
-      .sort((a, b) => b.id - a.id)
-
-    for (const ended of endedMatches) {
-      const dbPred = dbPredictions.find((p) => p.matchId === ended.id)
-      if (dbPred) return dbPred
-    }
-
-    return null
-  }
-
-  const isSynced = (matchId: number): boolean => {
-    return predictions.some((p) => Number(p.matchId) === matchId)
-  }
-
-  const syncMatch = async (matchId: number) => {
-    if (!wallet || syncing) return
-    const userId = session?.user?.id
-    if (!userId) return
-
-    const dbPred = dbPredictions.find((p) => p.matchId === matchId)
-    if (!dbPred) return
-
-    setSyncing(true)
-    try {
-      const predictionHash = hashPrediction({
-        userId,
-        matchId: dbPred.matchId,
-        pick: dbPred.pick,
-        homeScore: dbPred.homeScore,
-        awayScore: dbPred.awayScore,
-        cornersPick: dbPred.cornersPick,
-      })
-      const matchName = `${dbPred.match.teamA} vs ${dbPred.match.teamB}`
-      const summary = `Pick: ${dbPred.pick}`
-      const tx = await submitStorePredictionTxWithWallet(wallet, predictionHash, userId, matchId, matchName, summary)
-      await fetch('/api/predictions/txhash', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId, storeTxHash: tx.hash }),
-      })
-      await loadData()
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : ''
-      if (!msg.includes('Prediction already stored')) {
-        console.error('[sync] failed:', msg)
-      }
-    } finally {
-      setSyncing(false)
-    }
-  }
-
-  const claimRewards = async () => {
-    if (!wallet || claiming) return
-    setClaiming(true)
-    try {
-      const contract = await import('@/lib/blockchain').then((m) =>
-        m.claimRewardsTx(wallet as unknown as import('ethers').Eip1193Provider),
-      )
-      await contract.wait()
-      await loadData()
-    } catch (err) {
-      console.error('Claim failed:', err)
-    } finally {
-      setClaiming(false)
-    }
-  }
+  }, [loadData])
 
   const handleSwap = async () => {
     if (!wallet || !swapAmount || swapping) return
@@ -276,6 +154,22 @@ export default function ProfilePage() {
     }
   }
 
+  const requestPredFaucet = async () => {
+    if (predFauceting) return
+    setPredFauceting(true)
+    try {
+      const res = await fetch('/api/wallet/pred-faucet', { method: 'POST' })
+      const data = await res.json()
+      if (data.funded) {
+        await loadData()
+      }
+    } catch (err) {
+      console.error('PRED faucet failed:', err)
+    } finally {
+      setPredFauceting(false)
+    }
+  }
+
   const copyAddress = () => {
     if (walletAddress) {
       navigator.clipboard.writeText(walletAddress)
@@ -293,10 +187,16 @@ export default function ProfilePage() {
     )
   }
 
-  const syncable = getSyncableMatch()
-  const settledPredictions = predictions.filter((p) => p.isSettled)
-  const correctCount = settledPredictions.filter((p) => p.isCorrect).length
-  const wrongCount = settledPredictions.filter((p) => !p.isCorrect).length
+  const finishedPredictions = dbPredictions.filter((p) => p.match.result)
+  const correctCount = finishedPredictions.filter((p) => {
+    if (p.match.result) return p.pick === p.match.result
+    return false
+  }).length
+  const wrongCount = finishedPredictions.filter((p) => {
+    if (p.match.result) return p.pick !== p.match.result
+    return false
+  }).length
+  const pendingCount = dbPredictions.length - finishedPredictions.length
 
   return (
     <div className="page-enter space-y-6 max-w-3xl mx-auto">
@@ -339,59 +239,59 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* On-Chain Contract Data */}
+      {/* Balances */}
       {walletAddress && (
         <div className="bg-fifa-card rounded-2xl p-6 border border-wc-gold/20">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-wc-gold">Smart Contract Data</h2>
-            <a
-              href={`https://sourcify.dev/server/repo-ui/80002/${process.env.NEXT_PUBLIC_PREDICTION_CONTRACT_ADDRESS}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] font-mono text-wc-teal hover:underline"
-            >
-              View Source on Sourcify →
-            </a>
-          </div>
+          <h2 className="text-sm font-semibold text-wc-gold mb-4">Balances</h2>
 
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="bg-white/5 rounded-xl p-3 text-center">
-              <p className="text-lg font-bold text-white">{predictions.length}</p>
-              <p className="text-[10px] text-white/40">Synced</p>
+              <p className="text-lg font-bold text-wc-gold">{dbPredictions.length}</p>
+              <p className="text-[10px] text-white/40">Total Picks</p>
             </div>
             <div className="bg-white/5 rounded-xl p-3 text-center">
               <p className="text-lg font-bold text-green-400">{correctCount}</p>
-              <p className="text-[10px] text-white/40">Won</p>
+              <p className="text-[10px] text-white/40">Correct</p>
             </div>
             <div className="bg-white/5 rounded-xl p-3 text-center">
               <p className="text-lg font-bold text-red-400">{wrongCount}</p>
-              <p className="text-[10px] text-white/40">Lost</p>
-            </div>
-            <div className="bg-white/5 rounded-xl p-3 text-center">
-              <p className="text-lg font-bold text-wc-gold">{tokenBalance}</p>
-              <p className="text-[10px] text-white/40">PRED</p>
+              <p className="text-[10px] text-white/40">Wrong</p>
             </div>
           </div>
 
-          {/* Token Balance & Claim */}
+          {/* Points Audit Link */}
+          <Link
+            href="/points"
+            className="flex items-center justify-between w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <span>📊</span>
+              <span className="text-xs font-semibold text-white/80">View Points Audit Log</span>
+            </div>
+            <svg className="w-4 h-4 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+
+          {/* PRED Balance */}
           <div className="flex items-center justify-between bg-white/5 rounded-xl p-4 mb-4">
             <div>
               <p className="text-xs text-white/40">PRED Token Balance</p>
               <p className="text-xl font-bold text-white">{tokenBalance} <span className="text-sm text-white/40">PRED</span></p>
             </div>
-            {Number(unclaimedRewards) > 0 && (
+            {Number(tokenBalance) < 10 && (
               <button
-                onClick={claimRewards}
-                disabled={claiming}
-                className="px-4 py-2 text-xs font-semibold bg-wc-gold hover:bg-wc-gold/90 text-wc-navy rounded-lg transition-colors disabled:opacity-50"
+                onClick={requestPredFaucet}
+                disabled={predFauceting}
+                className="px-4 py-2 text-xs font-semibold bg-wc-teal hover:bg-wc-teal/80 text-white rounded-lg transition-colors disabled:opacity-50"
               >
-                {claiming ? 'Claiming...' : `Claim ${unclaimedRewards} PRED`}
+                {predFauceting ? 'Minting...' : 'Get 10 PRED'}
               </button>
             )}
           </div>
 
-          {/* POL Balance & Swap */}
+          {/* POL Balance */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="bg-white/5 rounded-xl p-3">
               <p className="text-[10px] text-white/40">Wallet POL</p>
@@ -445,92 +345,49 @@ export default function ProfilePage() {
               )}
             </div>
           )}
+        </div>
+      )}
 
-          {/* Sync Match - Live / Latest Ended */}
-          {syncable && !isSynced(syncable.matchId) && (
-            <div className="bg-wc-gold/10 border border-wc-gold/30 rounded-xl p-4 mb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] text-wc-gold font-semibold mb-1">READY TO SYNC</p>
-                  <p className="text-sm font-bold text-white">{syncable.match.teamA} vs {syncable.match.teamB}</p>
-                  <p className="text-[10px] text-white/40">Pick: {syncable.pick}</p>
-                </div>
-                {Number(polBalance) >= 0.02 ? (
-                  <button
-                    onClick={() => syncMatch(syncable.matchId)}
-                    disabled={syncing}
-                    className="px-4 py-2 text-xs font-semibold bg-wc-gold hover:bg-wc-gold/90 text-wc-navy rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {syncing ? 'Syncing...' : 'Sync to Chain'}
-                  </button>
-                ) : (
-                  <p className="text-[10px] text-red-400">Need POL for gas</p>
-                )}
-              </div>
-            </div>
-          )}
+      {/* Predictions */}
+      {walletAddress && (
+        <div className="bg-fifa-card rounded-2xl p-6 border border-wc-gold/20">
+          <h2 className="text-sm font-semibold text-wc-gold mb-4">My Predictions</h2>
 
-          {/* Prediction History */}
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="h-16 bg-white/5 rounded-xl animate-pulse" />
               ))}
             </div>
-          ) : predictions.length === 0 && dbPredictions.length === 0 ? (
+          ) : dbPredictions.length === 0 ? (
             <p className="text-sm text-white/40">No predictions yet. Make a pick to see them here.</p>
           ) : (
             <div className="space-y-2">
-              {predictions.map((p) => {
-                const matchId = Number(p.matchId)
-                const match = matches.find((m) => m.id === matchId)
-                const matchName = match ? `${match.teamA} vs ${match.teamB}` : p.matchName
-                const pick = p.predictionSummary.replace('Pick: ', '')
-                const txData = txHashes[matchId]
-                const storeTx = txData?.storeTxHash
-                const settleTx = txData?.settleTxHash
+              {dbPredictions.map((p) => {
+                const match = matches.find((m) => m.id === p.matchId)
+                const matchName = match ? `${match.teamA} vs ${match.teamB}` : `Match #${p.matchId}`
+                const isFinished = !!p.match.result
+                const isCorrect = isFinished && p.pick === p.match.result
 
                 return (
-                  <div key={`chain-${matchId}`} className="bg-white/5 rounded-xl p-3 border border-white/10">
+                  <div key={p.id} className="bg-white/5 rounded-xl p-3 border border-white/10">
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold text-white truncate">{matchName}</p>
-                        <p className="text-[10px] text-wc-gold">Pick: {pick}</p>
-                        <div className="flex gap-2 mt-0.5">
-                          {storeTx && (
-                            <a
-                              href={`https://amoy.polygonscan.com/tx/${storeTx}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[10px] text-wc-teal hover:underline font-mono"
-                            >
-                              Store ↗
-                            </a>
-                          )}
-                          {settleTx && (
-                            <a
-                              href={`https://amoy.polygonscan.com/tx/${settleTx}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[10px] text-wc-teal hover:underline font-mono"
-                            >
-                              Settle ↗
-                            </a>
-                          )}
-                        </div>
+                        <p className="text-[10px] text-wc-gold">Pick: {p.pick}</p>
+                        {isFinished && (
+                          <p className="text-[10px] text-white/40">Result: {p.match.result}</p>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">
-                          On-Chain
-                        </span>
-                        {p.isSettled ? (
-                          p.isCorrect ? (
+                        {isFinished ? (
+                          isCorrect ? (
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">
-                              +0.0001 PRED
+                              Correct
                             </span>
                           ) : (
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">
-                              -0.0001 PRED
+                              Wrong
                             </span>
                           )
                         ) : (
@@ -543,31 +400,8 @@ export default function ProfilePage() {
                   </div>
                 )
               })}
-
-              {dbPredictions
-                .filter((p) => !predictions.some((op) => Number(op.matchId) === p.matchId))
-                .map((p) => (
-                  <div key={`db-${p.matchId}`} className="bg-white/5 rounded-xl p-3 border border-white/10 opacity-50">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-white truncate">{p.match.teamA} vs {p.match.teamB}</p>
-                        <p className="text-[10px] text-wc-gold">Pick: {p.pick}</p>
-                      </div>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400">
-                        Not Synced
-                      </span>
-                    </div>
-                  </div>
-                ))
-              }
             </div>
           )}
-
-          {/* Contract Address */}
-          <div className="mt-4 pt-3 border-t border-white/10">
-            <p className="text-[10px] text-white/30">Contract: <span className="font-mono">{process.env.NEXT_PUBLIC_PREDICTION_CONTRACT_ADDRESS?.slice(0, 6)}...{process.env.NEXT_PUBLIC_PREDICTION_CONTRACT_ADDRESS?.slice(-4)}</span></p>
-            <p className="text-[10px] text-white/30">Network: Polygon Amoy Testnet</p>
-          </div>
         </div>
       )}
     </div>

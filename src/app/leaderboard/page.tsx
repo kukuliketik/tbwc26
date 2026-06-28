@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { useToast } from '@/components/Toast'
 import Avatar from '@/components/Avatar'
 
@@ -109,6 +110,18 @@ export default function LeaderboardPage() {
           </div>
         </div>
       )}
+
+      {/* Points Audit Link */}
+      <Link
+        href="/points"
+        className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:border-wc-gold/50 transition-colors"
+      >
+        <span>📊</span>
+        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">View Your Points Audit Log</span>
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </Link>
 
       {/* Full Leaderboard Table */}
       {entries.length > 0 && (
