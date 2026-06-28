@@ -13,7 +13,6 @@ import {
   parseScorerIds,
   filterRegularTimeGoals,
   get90MinScore,
-  get90MinResult,
   FifaMatch,
 } from '@/lib/fifa-api'
 
@@ -40,39 +39,59 @@ async function settleAuditLogs(userId: string) {
 
   if (!user) return
 
-  // Cleanup: remove booster logs for Group Stage matches (they should not have booster points)
-  const groupStageMatches = user.predictions
+  // Get all existing logs for this user in one query
+  const allExistingLogs = await prisma.pointAuditLog.findMany({
+    where: { userId },
+    select: { matchId: true, category: true },
+  })
+  const existingByMatch = new Map<number, Set<string>>()
+  for (const log of allExistingLogs) {
+    const cats = existingByMatch.get(log.matchId) ?? new Set()
+    cats.add(log.category)
+    existingByMatch.set(log.matchId, cats)
+  }
+
+  // Cleanup: remove booster logs for Group Stage
+  const groupStageMatchIds = user.predictions
     .filter((p) => !KNOCKOUT_ROUNDS.has(p.match.round))
     .map((p) => p.matchId)
-  if (groupStageMatches.length > 0) {
+  if (groupStageMatchIds.length > 0) {
     await prisma.pointAuditLog.deleteMany({
       where: {
         userId,
-        matchId: { in: groupStageMatches },
+        matchId: { in: groupStageMatchIds },
         category: { in: ['score', 'corner', 'scorer'] },
       },
     })
   }
 
-  const fifaByMatchNum: Map<number, FifaMatch> = new Map()
+  // Find predictions that need settling
+  const needsSettling = user.predictions.filter((pred) => {
+    const result = pred.match.result
+    if (!result) return false
+    const existing = existingByMatch.get(pred.matchId)
+    if (!existing) return true // No logs at all
+    if (!existing.has('prediction')) return true
+    const isKnockout = KNOCKOUT_ROUNDS.has(pred.match.round)
+    if (!isKnockout) return false
+    // Check if booster logs are missing
+    if (pred.homeScore !== null && pred.awayScore !== null && !existing.has('score')) return true
+    if (pred.cornersPick && !existing.has('corner')) return true
+    if ((pred.goalScorerId || pred.goalScorer) && !existing.has('scorer')) return true
+    return false
+  })
+
+  if (needsSettling.length === 0) return
+
+  // Fetch FIFA matches once
+  const fifaByMatchNum = new Map<number, FifaMatch>()
   try {
     const matches = await getAllMatches()
     for (const m of matches) {
       fifaByMatchNum.set(m.MatchNumber, m)
     }
   } catch {
-    // FIFA API down
-  }
-
-  function getMatchResult(match: { id: number; result: string | null }): string | null {
-    if (match.result) return match.result
-    const fifa = fifaByMatchNum.get(match.id)
-    if (!fifa || !isFinished(fifa)) return null
-    const hs = getHomeScore(fifa)
-    const as = getAwayScore(fifa)
-    if (hs > as) return 'Team A'
-    if (hs < as) return 'Team B'
-    return 'Draw'
+    return
   }
 
   const logsToCreate: Array<{
@@ -83,31 +102,44 @@ async function settleAuditLogs(userId: string) {
     detail: string
   }> = []
 
-  for (const pred of user.predictions) {
-    const result = getMatchResult(pred.match)
-    if (!result) continue
+  // Group predictions by matchId to avoid duplicate FIFA calls
+  const predsByMatch = new Map<number, typeof needsSettling>()
+  for (const pred of needsSettling) {
+    const arr = predsByMatch.get(pred.matchId) ?? []
+    arr.push(pred)
+    predsByMatch.set(pred.matchId, arr)
+  }
 
-    const fifa = fifaByMatchNum.get(pred.matchId)
-    if (!fifa) continue
+  // Process each match
+  for (const [matchId, preds] of predsByMatch) {
+    const match = preds[0].match
+    const fifa = fifaByMatchNum.get(matchId)
+    if (!fifa || !isFinished(fifa)) continue
 
     const homeScore = getHomeScore(fifa)
     const awayScore = getAwayScore(fifa)
     const homeTeamId = fifa.Home?.IdTeam ?? ''
     const awayTeamId = fifa.Away?.IdTeam ?? ''
+    const isKnockout = KNOCKOUT_ROUNDS.has(match.round)
 
-    const isKnockout = KNOCKOUT_ROUNDS.has(pred.match.round)
+    // Determine result
+    let result: string
+    if (match.result) {
+      result = match.result
+    } else {
+      if (homeScore > awayScore) result = 'Team A'
+      else if (homeScore < awayScore) result = 'Team B'
+      else result = 'Draw'
+    }
 
-    // For knockout matches, fetch match detail to get 90-minute scores
+    // For knockout matches, fetch detail once for 90-min scores and scorers
     let matchDetail = null
     if (isKnockout && homeTeamId && awayTeamId) {
       try {
         matchDetail = await getMatchDetail(fifa.IdMatch)
-      } catch {
-        // Fall back to final scores
-      }
+      } catch {}
     }
 
-    // Use 90-minute scores for knockout matches, final scores for group stage
     let effectiveHomeScore = homeScore
     let effectiveAwayScore = awayScore
     if (matchDetail) {
@@ -116,126 +148,119 @@ async function settleAuditLogs(userId: string) {
       effectiveAwayScore = score90.away
     }
 
-    // Check existing logs for this user+match
-    const existingLogs = await prisma.pointAuditLog.findMany({
-      where: { userId, matchId: pred.matchId },
-    })
-    const existingCategories = new Set(existingLogs.map((l) => l.category))
-
-    // 1. Prediction (Win/Draw/Lose)
-    if (!existingCategories.has('prediction')) {
-      const correct = pred.pick === result
-      const pts = correct ? (isKnockout ? 2 : 1) : 0
-      const teamA = pred.match.teamA
-      const teamB = pred.match.teamB
-      const pickLabel = pred.pick === 'Team A' ? teamA : pred.pick === 'Team B' ? teamB : 'Draw'
-      const resultLabel = result === 'Team A' ? teamA : result === 'Team B' ? teamB : 'Draw'
-
-      logsToCreate.push({
-        userId,
-        matchId: pred.matchId,
-        category: 'prediction',
-        points: pts,
-        detail: correct
-          ? `Correct: picked ${pickLabel} — Result: ${resultLabel} (${isKnockout ? 'Knockout +2' : 'Group +1'})`
-          : `Wrong: picked ${pickLabel} — Result: ${resultLabel}`,
-      })
-    }
-
-    // Booster points only apply to Knockout matches (R32+)
-    if (!isKnockout) continue
-
-    // 2. Score prediction (uses 90-minute scores)
-    if (!existingCategories.has('score') && pred.homeScore !== null && pred.awayScore !== null) {
-      const correct = pred.homeScore === effectiveHomeScore && pred.awayScore === effectiveAwayScore
-      logsToCreate.push({
-        userId,
-        matchId: pred.matchId,
-        category: 'score',
-        points: correct ? 3 : -1,
-        detail: correct
-          ? `Correct Score: predicted ${pred.homeScore}-${pred.awayScore}, actual ${effectiveHomeScore}-${effectiveAwayScore} (90min)`
-          : `Wrong Score: predicted ${pred.homeScore}-${pred.awayScore}, actual ${effectiveHomeScore}-${effectiveAwayScore} (90min)`,
-      })
-    }
-
-    // 3. Corner prediction (requires timeline data)
-    if (!existingCategories.has('corner') && pred.cornersPick && homeTeamId && awayTeamId) {
+    // Fetch timeline once for corner data
+    let cornerStats: { home: { corners: number }; away: { corners: number } } | null = null
+    if (isKnockout && preds.some((p) => p.cornersPick) && homeTeamId && awayTeamId) {
       try {
         const timeline = await getMatchTimeline(fifa.IdMatch, false, true)
-        const stats = deriveStatsFromTimeline(timeline, homeTeamId, awayTeamId)
-
-        if (stats) {
-          let actualCornersResult: string
-          if (stats.home.corners > stats.away.corners) actualCornersResult = 'Team A'
-          else if (stats.home.corners < stats.away.corners) actualCornersResult = 'Team B'
-          else actualCornersResult = 'Draw'
-
-          const correct = pred.cornersPick === actualCornersResult
-          const teamA = pred.match.teamA
-          const teamB = pred.match.teamB
-          const pickLabel = pred.cornersPick === 'Team A' ? teamA : pred.cornersPick === 'Team B' ? teamB : 'Draw'
-          const actualLabel = actualCornersResult === 'Team A' ? teamA : actualCornersResult === 'Team B' ? teamB : 'Draw'
-
-          logsToCreate.push({
-            userId,
-            matchId: pred.matchId,
-            category: 'corner',
-            points: correct ? 2 : -1,
-            detail: correct
-              ? `Correct Corners: picked ${pickLabel} — Actual: ${actualLabel} (${stats.home.corners}-${stats.away.corners})`
-              : `Wrong Corners: picked ${pickLabel} — Actual: ${actualLabel} (${stats.home.corners}-${stats.away.corners})`,
-          })
-        }
-      } catch {
-        // Timeline fetch failed, skip corner audit
-      }
+        cornerStats = deriveStatsFromTimeline(timeline, homeTeamId, awayTeamId)
+      } catch {}
     }
 
-    // 4. Goal scorer prediction (uses regular time goals only - 90 minutes)
-    if (!existingCategories.has('scorer') && (pred.goalScorerId || pred.goalScorer) && matchDetail) {
-      const detailHomePlayers = matchDetail.HomeTeam?.Players ?? []
-      const detailAwayPlayers = matchDetail.AwayTeam?.Players ?? []
-      // Filter to regular time goals only (exclude extra time)
-      const homeGoals = filterRegularTimeGoals(matchDetail.HomeTeam?.Goals ?? [])
-      const awayGoals = filterRegularTimeGoals(matchDetail.AwayTeam?.Goals ?? [])
-      const homeScorers = parseScorers(homeGoals, detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
-      const awayScorers = parseScorers(awayGoals, detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
-      const homeScorerIds = parseScorerIds(homeGoals)
-      const awayScorerIds = parseScorerIds(awayGoals)
-      const allScorerIds = [...homeScorerIds, ...awayScorerIds]
-      const allScorers = [...homeScorers, ...awayScorers]
+    const existing = existingByMatch.get(matchId) ?? new Set()
 
-      let goals = 0
-      if (pred.goalScorerId) {
-        goals = allScorerIds.filter((id) => id === pred.goalScorerId).length
-      } else if (pred.goalScorer) {
-        const name = pred.goalScorer.toUpperCase().replace(/\s+/g, ' ').trim()
-        goals = allScorers.filter((s) => {
-          const scorerName = s.toUpperCase().replace(/ \(OG\)/, '').replace(/\s+\d+.*$/, '').replace(/\s+$/, '').trim()
-          if (scorerName === name) return true
-          const scorerParts = scorerName.split(' ')
-          const scorerLast = scorerParts[scorerParts.length - 1]
-          const nameParts = name.split(' ')
-          const nameLast = nameParts[nameParts.length - 1]
-          return scorerLast === nameLast && scorerLast.length > 2
-        }).length
+    for (const pred of preds) {
+      // 1. Prediction
+      if (!existing.has('prediction')) {
+        const correct = pred.pick === result
+        const pts = correct ? (isKnockout ? 2 : 1) : 0
+        const pickLabel = pred.pick === 'Team A' ? match.teamA : pred.pick === 'Team B' ? match.teamB : 'Draw'
+        const resultLabel = result === 'Team A' ? match.teamA : result === 'Team B' ? match.teamB : 'Draw'
+
+        logsToCreate.push({
+          userId,
+          matchId,
+          category: 'prediction',
+          points: pts,
+          detail: correct
+            ? `Correct: picked ${pickLabel} — Result: ${resultLabel} (${isKnockout ? 'Knockout +2' : 'Group +1'})`
+            : `Wrong: picked ${pickLabel} — Result: ${resultLabel}`,
+        })
+        existing.add('prediction')
       }
 
-      const correct = goals > 0
-      logsToCreate.push({
-        userId,
-        matchId: pred.matchId,
-        category: 'scorer',
-        points: correct ? goals * 4 : -2,
-        detail: correct
-          ? `Correct Scorer: ${pred.goalScorer} scored ${goals} goal${goals > 1 ? 's' : ''} in 90min (+${goals * 4})`
-          : `Wrong Scorer: ${pred.goalScorer} did not score in 90min`,
-      })
+      if (!isKnockout) continue
+
+      // 2. Score
+      if (!existing.has('score') && pred.homeScore !== null && pred.awayScore !== null) {
+        const correct = pred.homeScore === effectiveHomeScore && pred.awayScore === effectiveAwayScore
+        logsToCreate.push({
+          userId,
+          matchId,
+          category: 'score',
+          points: correct ? 3 : -1,
+          detail: correct
+            ? `Correct Score: predicted ${pred.homeScore}-${pred.awayScore}, actual ${effectiveHomeScore}-${effectiveAwayScore} (90min)`
+            : `Wrong Score: predicted ${pred.homeScore}-${pred.awayScore}, actual ${effectiveHomeScore}-${effectiveAwayScore} (90min)`,
+        })
+        existing.add('score')
+      }
+
+      // 3. Corners
+      if (!existing.has('corner') && pred.cornersPick && cornerStats) {
+        let actualResult: string
+        if (cornerStats.home.corners > cornerStats.away.corners) actualResult = 'Team A'
+        else if (cornerStats.home.corners < cornerStats.away.corners) actualResult = 'Team B'
+        else actualResult = 'Draw'
+
+        const correct = pred.cornersPick === actualResult
+        const pickLabel = pred.cornersPick === 'Team A' ? match.teamA : pred.cornersPick === 'Team B' ? match.teamB : 'Draw'
+        const actualLabel = actualResult === 'Team A' ? match.teamA : actualResult === 'Team B' ? match.teamB : 'Draw'
+
+        logsToCreate.push({
+          userId,
+          matchId,
+          category: 'corner',
+          points: correct ? 2 : -1,
+          detail: correct
+            ? `Correct Corners: picked ${pickLabel} — Actual: ${actualLabel} (${cornerStats.home.corners}-${cornerStats.away.corners})`
+            : `Wrong Corners: picked ${pickLabel} — Actual: ${actualLabel} (${cornerStats.home.corners}-${cornerStats.away.corners})`,
+        })
+        existing.add('corner')
+      }
+
+      // 4. Scorer
+      if (!existing.has('scorer') && (pred.goalScorerId || pred.goalScorer) && matchDetail) {
+        const detailHomePlayers = matchDetail.HomeTeam?.Players ?? []
+        const detailAwayPlayers = matchDetail.AwayTeam?.Players ?? []
+        const homeGoals = filterRegularTimeGoals(matchDetail.HomeTeam?.Goals ?? [])
+        const awayGoals = filterRegularTimeGoals(matchDetail.AwayTeam?.Goals ?? [])
+        const homeScorers = parseScorers(homeGoals, detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
+        const awayScorers = parseScorers(awayGoals, detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
+        const homeScorerIds = parseScorerIds(homeGoals)
+        const awayScorerIds = parseScorerIds(awayGoals)
+        const allScorerIds = [...homeScorerIds, ...awayScorerIds]
+        const allScorers = [...homeScorers, ...awayScorers]
+
+        let goals = 0
+        if (pred.goalScorerId) {
+          goals = allScorerIds.filter((id) => id === pred.goalScorerId).length
+        } else if (pred.goalScorer) {
+          const name = pred.goalScorer.toUpperCase().replace(/\s+/g, ' ').trim()
+          goals = allScorers.filter((s) => {
+            const scorerName = s.toUpperCase().replace(/ \(OG\)/, '').replace(/\s+\d+.*$/, '').replace(/\s+$/, '').trim()
+            if (scorerName === name) return true
+            const scorerLast = scorerName.split(' ').pop() ?? ''
+            const nameLast = name.split(' ').pop() ?? ''
+            return scorerLast === nameLast && scorerLast.length > 2
+          }).length
+        }
+
+        const correct = goals > 0
+        logsToCreate.push({
+          userId,
+          matchId,
+          category: 'scorer',
+          points: correct ? goals * 4 : -2,
+          detail: correct
+            ? `Correct Scorer: ${pred.goalScorer} scored ${goals} goal${goals > 1 ? 's' : ''} in 90min (+${goals * 4})`
+            : `Wrong Scorer: ${pred.goalScorer} did not score in 90min`,
+        })
+        existing.add('scorer')
+      }
     }
   }
 
-  // Batch insert
   if (logsToCreate.length > 0) {
     await prisma.pointAuditLog.createMany({
       data: logsToCreate,
@@ -252,8 +277,8 @@ export async function GET() {
 
   const userId = session.user.id
 
-  // Settle any missing logs first
-  await settleAuditLogs(userId)
+  // Settle in background (don't await) so page loads fast
+  settleAuditLogs(userId).catch(() => {})
 
   const logs = await prisma.pointAuditLog.findMany({
     where: { userId },
