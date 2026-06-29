@@ -573,8 +573,8 @@ export default function MatchDetailPage() {
               width="100%"
               height={1200}
               frameBorder="0"
-              className="absolute left-0 w-full"
-              style={{ top: -280, pointerEvents: 'none' }}
+              className="absolute"
+              style={{ top: -280, left: -40, width: '110%', pointerEvents: 'none' }}
               title="3D Match View"
             />
           </div>
