@@ -556,7 +556,7 @@ export default function MatchDetailPage() {
             </div>
 
       {/* ===== LIVE MATCH WIDGETS ===== */}
-      {LIVE_WIDGETS[match.id] && (isLiveMatch || isFinishedMatch) && (
+      {LIVE_WIDGETS[match.id] && (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
             <span className="w-2 h-2 bg-red-500 rounded-full live-pulse" />
