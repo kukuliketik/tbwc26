@@ -115,7 +115,7 @@ export async function getAllMatches(): Promise<FifaMatch[]> {
   _allMatchesPromise = (async () => {
     try {
       const url = `${BASE_URL}/calendar/matches?count=104&idSeason=${SEASON_ID}&idCompetition=${COMPETITION_ID}&language=en&from=${DATE_FROM}&to=${DATE_TO}`
-      const res = await fetch(url, { next: { revalidate: 0 } })
+      const res = await fetch(url, { cache: 'no-store' })
       if (!res.ok) throw new Error(`FIFA API returned ${res.status}`)
       const json = await res.json()
       const data: FifaMatch[] = json?.Results ?? []
@@ -198,7 +198,7 @@ export async function getTeamForm(teamId: string): Promise<FifaTeamForm | null> 
     // Note: intentionally omit idCompetition so friendlies and qualifiers are included,
     // matching the recent form shown on fifa.com match centre pages.
     const url = `${BASE_URL}/teamform/${teamId}?count=5&language=en`
-    const res = await fetch(url, { next: { revalidate: 0 } })
+    const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) return null
     const json = await res.json()
     _detailCache[cacheKey] = { data: json as FifaTeamForm, expiry: now + CACHE_TTL }
@@ -241,10 +241,19 @@ export function parseScorerIds(goals: FifaGoal[]): string[] {
   return goals.map((g) => g.IdPlayer)
 }
 
-// Filter goals to only regular time (Period 1 = first half, Period 2 = second half)
-// Extra time (Period 3, 4) and penalties are excluded
+// Filter goals to only regular time (90 minutes + stoppage time)
+// Period 1 = first half, Period 2 = second half
+// Period 5 = second-half stoppage time (90'+X) in FIFA API
+// Period 3, 4 = extra time (excluded)
 export function filterRegularTimeGoals(goals: FifaGoal[]): FifaGoal[] {
-  return goals.filter((g) => g.Period === 1 || g.Period === 2)
+  return goals.filter((g) => {
+    // Period 1 and 2 are always regular time
+    if (g.Period === 1 || g.Period === 2) return true
+    // Period 5 = stoppage time in FIFA API (90'+X or 45'+X)
+    if (g.Period === 5) return true
+    // Period 3, 4 = extra time - excluded
+    return false
+  })
 }
 
 // Get the 90-minute score from match detail (excludes extra time goals)
@@ -269,7 +278,7 @@ export async function getMatchDetail(idMatch: string): Promise<FifaMatchDetail |
 
   try {
     const url = `${BASE_URL}/live/football/${idMatch}?language=en`
-    const res = await fetch(url, { next: { revalidate: 0 } })
+    const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) return null
     const json = await res.json()
     _detailCache[idMatch] = { data: json as FifaMatchDetail, expiry: now + CACHE_TTL }
@@ -333,11 +342,11 @@ export async function getMatchTimeline(
 
   // Finished matches never change — cache for 24h. Live matches update quickly.
   const ttl = isFinishedMatch ? 24 * 60 * 60 * 1000 : isLiveMatch ? 10_000 : CACHE_TTL
-  const revalidate = isFinishedMatch ? 86400 : 0
+  const fetchOpts = isFinishedMatch ? { next: { revalidate: 86400 } } : { cache: 'no-store' as const }
 
   try {
     const url = `${BASE_URL}/timelines/${idMatch}?language=en`
-    const res = await fetch(url, { next: { revalidate } })
+    const res = await fetch(url, fetchOpts)
     if (!res.ok) return null
     const json = await res.json()
     _detailCache[cacheKey] = { data: json as FifaMatchTimeline, expiry: now + ttl }
@@ -413,7 +422,7 @@ export async function getTeamSquad(teamId: string): Promise<TeamSquadPlayer[]> {
 
   try {
     const url = `${BASE_URL}/teams/${teamId}/squad?idSeason=${SEASON_ID}&idCompetition=${COMPETITION_ID}&language=en`
-    const res = await fetch(url, { next: { revalidate: 0 } })
+    const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) return cached?.data ?? []
     const json = await res.json()
     const players: TeamSquadPlayer[] = (json.Players ?? []).map((p: {

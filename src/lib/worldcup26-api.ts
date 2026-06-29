@@ -92,7 +92,7 @@ async function fetchWC26<T>(endpoint: string): Promise<T | null> {
 
   try {
     const res = await fetch(`${BASE_URL}${endpoint}`, {
-      next: { revalidate: 30 },
+      cache: 'no-store',
     })
 
     if (!res.ok) {
