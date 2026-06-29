@@ -6,6 +6,9 @@ import {
   isFinished,
   getHomeScore,
   getAwayScore,
+  getHomeTeam,
+  getAwayTeam,
+  getRound,
   getMatchDetail,
   getMatchTimeline,
   deriveStatsFromTimeline,
@@ -65,10 +68,26 @@ async function settleAuditLogs(userId: string) {
     })
   }
 
+  // Fetch FIFA matches first to check which matches are finished
+  const fifaByMatchNum = new Map<number, FifaMatch>()
+  try {
+    const matches = await getAllMatches()
+    for (const m of matches) {
+      fifaByMatchNum.set(m.MatchNumber, m)
+    }
+  } catch {
+    return
+  }
+
   // Find predictions that need settling
   const needsSettling = user.predictions.filter((pred) => {
     const result = pred.match.result
-    if (!result) return false
+    const fifa = fifaByMatchNum.get(pred.matchId)
+    const isFinishedInFifa = fifa ? isFinished(fifa) : false
+    
+    // If no result in DB and not finished in FIFA, skip
+    if (!result && !isFinishedInFifa) return false
+    
     const existing = existingByMatch.get(pred.matchId)
     if (!existing) return true // No logs at all
     if (!existing.has('prediction')) return true
@@ -82,17 +101,6 @@ async function settleAuditLogs(userId: string) {
   })
 
   if (needsSettling.length === 0) return
-
-  // Fetch FIFA matches once
-  const fifaByMatchNum = new Map<number, FifaMatch>()
-  try {
-    const matches = await getAllMatches()
-    for (const m of matches) {
-      fifaByMatchNum.set(m.MatchNumber, m)
-    }
-  } catch {
-    return
-  }
 
   const logsToCreate: Array<{
     userId: string
@@ -116,23 +124,13 @@ async function settleAuditLogs(userId: string) {
     const fifa = fifaByMatchNum.get(matchId)
     if (!fifa || !isFinished(fifa)) continue
 
-    const homeScore = getHomeScore(fifa)
-    const awayScore = getAwayScore(fifa)
     const homeTeamId = fifa.Home?.IdTeam ?? ''
     const awayTeamId = fifa.Away?.IdTeam ?? ''
     const isKnockout = KNOCKOUT_ROUNDS.has(match.round)
+    const teamAName = getHomeTeam(fifa)
+    const teamBName = getAwayTeam(fifa)
 
-    // Determine result
-    let result: string
-    if (match.result) {
-      result = match.result
-    } else {
-      if (homeScore > awayScore) result = 'Team A'
-      else if (homeScore < awayScore) result = 'Team B'
-      else result = 'Draw'
-    }
-
-    // For knockout matches, fetch detail once for 90-min scores and scorers
+    // For knockout matches, fetch detail for 90-min scores and scorers
     let matchDetail = null
     if (isKnockout && homeTeamId && awayTeamId) {
       try {
@@ -140,12 +138,23 @@ async function settleAuditLogs(userId: string) {
       } catch {}
     }
 
-    let effectiveHomeScore = homeScore
-    let effectiveAwayScore = awayScore
+    // Use 90-minute scores for result determination
+    let effectiveHomeScore = getHomeScore(fifa)
+    let effectiveAwayScore = getAwayScore(fifa)
     if (matchDetail) {
       const score90 = get90MinScore(matchDetail)
       effectiveHomeScore = score90.home
       effectiveAwayScore = score90.away
+    }
+
+    // Determine result based on 90-minute scores
+    let result: string
+    if (match.result) {
+      result = match.result
+    } else {
+      if (effectiveHomeScore > effectiveAwayScore) result = 'Team A'
+      else if (effectiveHomeScore < effectiveAwayScore) result = 'Team B'
+      else result = 'Draw'
     }
 
     // Fetch timeline once for corner data
@@ -164,8 +173,8 @@ async function settleAuditLogs(userId: string) {
       if (!existing.has('prediction')) {
         const correct = pred.pick === result
         const pts = correct ? (isKnockout ? 2 : 1) : 0
-        const pickLabel = pred.pick === 'Team A' ? match.teamA : pred.pick === 'Team B' ? match.teamB : 'Draw'
-        const resultLabel = result === 'Team A' ? match.teamA : result === 'Team B' ? match.teamB : 'Draw'
+        const pickLabel = pred.pick === 'Team A' ? teamAName : pred.pick === 'Team B' ? teamBName : 'Draw'
+        const resultLabel = result === 'Team A' ? teamAName : result === 'Team B' ? teamBName : 'Draw'
 
         logsToCreate.push({
           userId,
@@ -204,8 +213,8 @@ async function settleAuditLogs(userId: string) {
         else actualResult = 'Draw'
 
         const correct = pred.cornersPick === actualResult
-        const pickLabel = pred.cornersPick === 'Team A' ? match.teamA : pred.cornersPick === 'Team B' ? match.teamB : 'Draw'
-        const actualLabel = actualResult === 'Team A' ? match.teamA : actualResult === 'Team B' ? match.teamB : 'Draw'
+        const pickLabel = pred.cornersPick === 'Team A' ? teamAName : pred.cornersPick === 'Team B' ? teamBName : 'Draw'
+        const actualLabel = actualResult === 'Team A' ? teamAName : actualResult === 'Team B' ? teamBName : 'Draw'
 
         logsToCreate.push({
           userId,
@@ -306,12 +315,28 @@ export async function GET() {
     byMatch.set(log.matchId, arr)
   }
 
+  // Fetch FIFA matches to resolve actual team names
+  const fifaByMatchNum = new Map<number, FifaMatch>()
+  try {
+    const fifaMatches = await getAllMatches()
+    for (const m of fifaMatches) {
+      fifaByMatchNum.set(m.MatchNumber, m)
+    }
+  } catch {}
+
   const result = [...byMatch.entries()].map(([matchId, matchLogs]) => {
     const match = matchLogs[0].match
     const totalPoints = matchLogs.reduce((sum, l) => sum + l.points, 0)
+    const fifa = fifaByMatchNum.get(matchId)
+    const enrichedMatch = {
+      ...match,
+      teamA: fifa ? getHomeTeam(fifa) : match.teamA,
+      teamB: fifa ? getAwayTeam(fifa) : match.teamB,
+      round: fifa ? getRound(fifa) : match.round,
+    }
     return {
       matchId,
-      match,
+      match: enrichedMatch,
       totalPoints,
       logs: matchLogs.map((l) => ({
         id: l.id,
