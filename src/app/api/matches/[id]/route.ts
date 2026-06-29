@@ -81,10 +81,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const homeTeam = fifaMatch ? getHomeTeam(fifaMatch) : match?.teamA ?? 'TBD'
   const awayTeam = fifaMatch ? getAwayTeam(fifaMatch) : match?.teamB ?? 'TBD'
 
-  // Use 90-minute scores when available (excludes extra time for knockout matches)
+  // Use full-time scores for live matches, 90-min scores for finished knockout matches
+  const KNOCKOUT_ROUNDS = new Set(['Round of 32', 'Round of 16', 'Quarterfinal', 'Semifinal', 'Third Place', 'Final'])
+  const roundStr = fifaMatch ? getRound(fifaMatch) : match?.round ?? ''
+  const isKnockout = KNOCKOUT_ROUNDS.has(roundStr)
   let homeScore = fifaMatch ? getHomeScore(fifaMatch) : 0
   let awayScore = fifaMatch ? getAwayScore(fifaMatch) : 0
-  if (matchDetail) {
+  if (matchDetail && isKnockout && isFinished(fifaMatch!)) {
     const score90 = get90MinScore(matchDetail)
     homeScore = score90.home
     awayScore = score90.away
