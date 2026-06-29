@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAllMatches, getMatchDetail, getTeamForm, getTeamSquad, parseScorers, parseScorerIds, filterRegularTimeGoals, get90MinScore, isLive, isFinished, getHomeScore, getAwayScore, getHomeTeam, getAwayTeam, getRound, getGroup, getStadiumName, getStadiumCity, FifaMatch, FifaMatchDetail } from '@/lib/fifa-api'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const matchId = parseInt(id)
