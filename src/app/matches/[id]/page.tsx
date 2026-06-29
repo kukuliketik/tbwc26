@@ -132,6 +132,14 @@ export default function MatchDetailPage() {
   const [saving, setSaving] = useState(false)
   const [savingExtras, setSavingExtras] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const loadStats = useCallback(async (currentMatch: MatchDetail) => {
     if (!currentMatch.live) return
@@ -559,14 +567,22 @@ export default function MatchDetailPage() {
               3D Match View
             </span>
           </div>
-          <div className="relative overflow-hidden" style={{ height: 520 }}>
+          <div className="relative overflow-hidden" style={{ height: isMobile ? 255 : 520 }}>
             <iframe
               src={AISCORE_URLS[match.id]}
               width="100%"
               height={1200}
               frameBorder="0"
               className="absolute"
-              style={{ top: -500, left: -50, width: '130%', transform: 'scale(0.975)', transformOrigin: 'top left', pointerEvents: 'none' }}
+              style={{
+                top: isMobile ? -230 : -500,
+                left: isMobile ? -30 : -50,
+                width: isMobile ? '300%' : '130%',
+                transform: `scale(${isMobile ? 0.465 : 0.975})`,
+                transformOrigin: 'top left',
+                pointerEvents: 'none',
+                touchAction: 'none',
+              }}
               title="3D Match View"
             />
           </div>
