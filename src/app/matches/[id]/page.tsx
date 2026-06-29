@@ -14,11 +14,10 @@ import MatchStats from '@/components/MatchStats'
 import SearchableSelect from '@/components/SearchableSelect'
 import { useToast } from '@/components/Toast'
 
-const SPORTS01_BASE_ID = 4459644 // offset: thesports01_id = fifa_match_number + SPORTS01_BASE_ID
-
-function getSports01WidgetUrl(matchNumber: number): string | null {
-  const id = SPORTS01_BASE_ID + matchNumber
-  return `https://widgets.thesports01.com/en/3d/football?profile=74rekh26eseunr0&id=${id}`
+// AiScore match URLs — IDs are random hashes, must be manually mapped
+const AISCORE_URLS: Record<number, string> = {
+  75: 'https://www.aiscore.com/match-netherlands-morocco/ezk96i3gj3wa1kn',
+  76: 'https://www.aiscore.com/match-brazil-japan/l6kegi86r80fv75',
 }
 
 interface UserInfo {
@@ -552,17 +551,25 @@ export default function MatchDetailPage() {
               )}
             </div>
 
-      {/* ===== LIVE MATCH WIDGETS ===== */}
-      {getSports01WidgetUrl(match.id) && (
+      {/* ===== LIVE MATCH WIDGET (AiScore 3D) ===== */}
+      {AISCORE_URLS[match.id] && (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
               3D Match View
             </span>
+            <a
+              href={AISCORE_URLS[match.id]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-wc-gold hover:underline"
+            >
+              Open in AiScore ↗
+            </a>
           </div>
           <div className="p-4">
             <iframe
-              src={getSports01WidgetUrl(match.id)!}
+              src={AISCORE_URLS[match.id]}
               width="100%"
               height={500}
               frameBorder="0"
