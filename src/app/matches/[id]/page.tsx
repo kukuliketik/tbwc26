@@ -131,7 +131,6 @@ export default function MatchDetailPage() {
   const [goalScorerId, setGoalScorerId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [savingExtras, setSavingExtras] = useState(false)
-  const [elapsed, setElapsed] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -223,21 +222,6 @@ export default function MatchDetailPage() {
 
     return () => clearInterval(interval)
   }, [match?.live?.isLive, id, match, loadStats, savingExtras, session?.user?.id])
-
-  // Elapsed minutes for live matches
-  useEffect(() => {
-    if (!match?.live?.isLive) return
-    const matchTs = match.live?.localDate
-      ? parseWC26Date(match.live.localDate, match.live.stadiumId).getTime()
-      : new Date(match.date).getTime()
-    const update = () => setElapsed(Math.floor((Date.now() - matchTs) / 60000))
-    const initial = setTimeout(update, 0)
-    const timer = setInterval(update, 30000)
-    return () => {
-      clearTimeout(initial)
-      clearInterval(timer)
-    }
-  }, [match?.live?.isLive, match])
 
   const handlePick = async (pick: string) => {
     setUserPick(pick)
@@ -497,16 +481,6 @@ export default function MatchDetailPage() {
                   <span className="text-[10px] text-gray-400">WIB</span>
                 </div>
               )}
-              {/* Status text */}
-              <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${
-                isLiveMatch
-                  ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
-                  : isFinishedMatch
-                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-                    : 'bg-wc-gold/10 text-wc-gold'
-              }`}>
-                {isLiveMatch ? (elapsed > 0 ? `${elapsed}'` : 'LIVE') : status.label}
-              </span>
             </div>
 
             {/* Team B */}

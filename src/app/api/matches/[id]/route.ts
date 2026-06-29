@@ -4,6 +4,8 @@ import { getAllMatches, getMatchDetail, getTeamForm, getTeamSquad, parseScorers,
 
 export const dynamic = 'force-dynamic'
 
+const KNOCKOUT_ROUNDS = new Set(['Round of 32', 'Round of 16', 'Quarterfinal', 'Semifinal', 'Third Place', 'Final'])
+
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const matchId = parseInt(id)
@@ -58,9 +60,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       if (detail) {
         const detailHomePlayers = detail.HomeTeam?.Players ?? []
         const detailAwayPlayers = detail.AwayTeam?.Players ?? []
-        // Use only regular time goals (90 minutes) - exclude extra time
-        const homeGoals = filterRegularTimeGoals(detail.HomeTeam?.Goals ?? [])
-        const awayGoals = filterRegularTimeGoals(detail.AwayTeam?.Goals ?? [])
+        // For finished knockout matches, use only 90-min goals; for live/all others use all goals
+        const isKnockoutMatch = KNOCKOUT_ROUNDS.has(getRound(fifaMatch))
+        const isFinishedMatch = isFinished(fifaMatch)
+        const use90Min = isKnockoutMatch && isFinishedMatch
+        const homeGoals = use90Min ? filterRegularTimeGoals(detail.HomeTeam?.Goals ?? []) : (detail.HomeTeam?.Goals ?? [])
+        const awayGoals = use90Min ? filterRegularTimeGoals(detail.AwayTeam?.Goals ?? []) : (detail.AwayTeam?.Goals ?? [])
         homeScorers = parseScorers(homeGoals, detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
         awayScorers = parseScorers(awayGoals, detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
         homeScorerIds = parseScorerIds(homeGoals)
@@ -82,7 +87,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const awayTeam = fifaMatch ? getAwayTeam(fifaMatch) : match?.teamB ?? 'TBD'
 
   // Use full-time scores for live matches, 90-min scores for finished knockout matches
-  const KNOCKOUT_ROUNDS = new Set(['Round of 32', 'Round of 16', 'Quarterfinal', 'Semifinal', 'Third Place', 'Final'])
   const roundStr = fifaMatch ? getRound(fifaMatch) : match?.round ?? ''
   const isKnockout = KNOCKOUT_ROUNDS.has(roundStr)
   let homeScore = fifaMatch ? getHomeScore(fifaMatch) : 0
