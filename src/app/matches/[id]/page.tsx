@@ -554,18 +554,10 @@ export default function MatchDetailPage() {
       {/* ===== 3D MATCH VIEW (AiScore) ===== */}
       {AISCORE_URLS[match.id] && (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
               3D Match View
             </span>
-            <a
-              href={AISCORE_URLS[match.id]}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] text-wc-gold hover:underline"
-            >
-              Open full page ↗
-            </a>
           </div>
           <div className="relative overflow-hidden" style={{ height: 520 }}>
             <iframe
