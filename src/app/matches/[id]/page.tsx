@@ -18,7 +18,7 @@ const LIVE_WIDGETS: Record<number, { title: string; widgets: { src: string; heig
   76: {
     title: 'Brazil vs Japan — Live',
     widgets: [
-      { src: 'https://widgets.thesports01.com/en/3d/football?profile=74rekh26eseunr0&id=4459720', height: 420, label: '3D Match View' },
+      { src: 'https://widgets.thesports01.com/en/3d/football?profile=74rekh26eseunr0&id=4459720', height: 600, label: '3D Match View' },
     ],
   },
 }
