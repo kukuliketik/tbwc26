@@ -551,34 +551,25 @@ export default function MatchDetailPage() {
               )}
             </div>
 
-      {/* ===== LIVE MATCH WIDGET (AiScore 3D) ===== */}
+      {/* ===== 3D MATCH VIEW LINK ===== */}
       {AISCORE_URLS[match.id] && (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-              3D Match View
-            </span>
-            <a
-              href={AISCORE_URLS[match.id]}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] text-wc-gold hover:underline"
-            >
-              Open in AiScore ↗
-            </a>
+        <a
+          href={AISCORE_URLS[match.id]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 px-5 py-4 hover:border-wc-gold/50 transition-colors group"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🏟️</span>
+            <div>
+              <div className="text-sm font-bold text-gray-900 dark:text-white">3D Match View</div>
+              <div className="text-[11px] text-gray-500">Live animation, lineups & stats on AiScore</div>
+            </div>
           </div>
-          <div className="p-4">
-            <iframe
-              src={AISCORE_URLS[match.id]}
-              width="100%"
-              height={500}
-              frameBorder="0"
-              allowFullScreen
-              className="rounded-xl w-full"
-              title="3D Match View"
-            />
-          </div>
-        </div>
+          <svg className="w-5 h-5 text-gray-400 group-hover:text-wc-gold transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
       )}
 
       {/* ===== MATCH STATS ===== */}
