@@ -567,14 +567,14 @@ export default function MatchDetailPage() {
               Open full page ↗
             </a>
           </div>
-          <div className="relative overflow-hidden" style={{ height: 420 }}>
+          <div className="relative overflow-hidden" style={{ height: 520 }}>
             <iframe
               src={AISCORE_URLS[match.id]}
               width="100%"
               height={1200}
               frameBorder="0"
               className="absolute"
-              style={{ top: -500, left: -50, width: '130%', transform: 'scale(0.98)', transformOrigin: 'top left', pointerEvents: 'none' }}
+              style={{ top: -500, left: -50, width: '130%', transform: 'scale(0.975)', transformOrigin: 'top left', pointerEvents: 'none' }}
               title="3D Match View"
             />
           </div>
