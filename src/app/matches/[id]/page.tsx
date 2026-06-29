@@ -14,6 +14,16 @@ import MatchStats from '@/components/MatchStats'
 import SearchableSelect from '@/components/SearchableSelect'
 import { useToast } from '@/components/Toast'
 
+const LIVE_WIDGETS: Record<number, { title: string; widgets: { src: string; height: number; label?: string }[] }> = {
+  76: {
+    title: 'Brazil vs Japan — Live',
+    widgets: [
+      { src: 'https://widgets.thesports01.com/en/3d/football?profile=74rekh26eseunr0&id=4459720', height: 420, label: '3D Match View' },
+      { src: 'https://www.aiscore.com/match-brazil-japan/l6kegi86r80fv75/lineups', height: 500, label: 'Lineups' },
+    ],
+  },
+}
+
 interface UserInfo {
   id: string
   name: string | null
@@ -544,6 +554,36 @@ export default function MatchDetailPage() {
                 </div>
               )}
             </div>
+
+      {/* ===== LIVE MATCH WIDGETS ===== */}
+      {LIVE_WIDGETS[match.id] && (isLiveMatch || isFinishedMatch) && (
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+            <span className="w-2 h-2 bg-red-500 rounded-full live-pulse" />
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+              {LIVE_WIDGETS[match.id].title}
+            </h3>
+          </div>
+          <div className="p-4 space-y-4">
+            {LIVE_WIDGETS[match.id].widgets.map((widget, idx) => (
+              <div key={idx}>
+                {widget.label && (
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">{widget.label}</div>
+                )}
+                <iframe
+                  src={widget.src}
+                  width="100%"
+                  height={widget.height}
+                  frameBorder="0"
+                  allowFullScreen
+                  className="rounded-xl w-full"
+                  title={widget.label ?? `Widget ${idx + 1}`}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ===== MATCH STATS ===== */}
       {match.live && (
