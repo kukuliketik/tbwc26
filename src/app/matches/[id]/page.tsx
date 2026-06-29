@@ -19,7 +19,6 @@ const LIVE_WIDGETS: Record<number, { title: string; widgets: { src: string; heig
     title: 'Brazil vs Japan — Live',
     widgets: [
       { src: 'https://widgets.thesports01.com/en/3d/football?profile=74rekh26eseunr0&id=4459720', height: 420, label: '3D Match View' },
-      { src: 'https://www.aiscore.com/match-brazil-japan/l6kegi86r80fv75/lineups', height: 500, label: 'Lineups' },
     ],
   },
 }
