@@ -63,6 +63,14 @@ async function settleAuditLogsForUser(userId: string, fifaByMatchNum: Map<number
         category: { in: ['score', 'corner', 'scorer'] },
       },
     })
+    for (const mId of groupStageMatchIds) {
+      const cats = existingByMatch.get(mId)
+      if (cats) {
+        cats.delete('score')
+        cats.delete('corner')
+        cats.delete('scorer')
+      }
+    }
   }
 
   // Cleanup: remove stale scorer/score logs for finished knockout matches
@@ -81,6 +89,13 @@ async function settleAuditLogsForUser(userId: string, fifaByMatchNum: Map<number
         category: { in: ['score', 'scorer'] },
       },
     })
+    for (const mId of finishedKnockoutMatchIds) {
+      const cats = existingByMatch.get(mId)
+      if (cats) {
+        cats.delete('score')
+        cats.delete('scorer')
+      }
+    }
   }
 
   const needsSettling = user.predictions.filter((pred) => {

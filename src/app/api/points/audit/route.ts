@@ -66,6 +66,14 @@ async function settleAuditLogs(userId: string) {
         category: { in: ['score', 'corner', 'scorer'] },
       },
     })
+    for (const mId of groupStageMatchIds) {
+      const cats = existingByMatch.get(mId)
+      if (cats) {
+        cats.delete('score')
+        cats.delete('corner')
+        cats.delete('scorer')
+      }
+    }
   }
 
   // Cleanup: remove stale scorer/score logs for finished knockout matches
@@ -84,6 +92,13 @@ async function settleAuditLogs(userId: string) {
         category: { in: ['score', 'scorer'] },
       },
     })
+    for (const mId of finishedKnockoutMatchIds) {
+      const cats = existingByMatch.get(mId)
+      if (cats) {
+        cats.delete('score')
+        cats.delete('scorer')
+      }
+    }
   }
 
   // Fetch FIFA matches first to check which matches are finished
