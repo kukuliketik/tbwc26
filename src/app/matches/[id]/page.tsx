@@ -314,6 +314,9 @@ export default function MatchDetailPage() {
     return Math.round((match.predictions.filter((p) => p.pick === team).length / totalPicks) * 100)
   }
 
+  const FIFTEEN_MIN_MS = 15 * 60 * 1000
+  const show3DView = !!AISCORE_URLS[match.id] && !isFinishedMatch && now.getTime() >= matchDate.getTime() - FIFTEEN_MIN_MS
+
   const teamStats = match.teamStats
 
   // Actual corners result for finished matches
@@ -534,7 +537,7 @@ export default function MatchDetailPage() {
             </div>
 
       {/* ===== 3D MATCH VIEW (AiScore) ===== */}
-      {AISCORE_URLS[match.id] && (
+      {show3DView && (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">

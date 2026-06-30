@@ -241,17 +241,16 @@ export function parseScorerIds(goals: FifaGoal[]): string[] {
   return goals.map((g) => g.IdPlayer)
 }
 
-// Filter goals to only regular time (90 minutes + stoppage time)
+// Filter goals to only regular time (90 minutes + stoppage time + extra time stoppage)
 // Period 1 = first half, Period 2 = second half
+// Period 3 = first-half stoppage time (45'+X) in FIFA API
 // Period 5 = second-half stoppage time (90'+X) in FIFA API
-// Period 3, 4 = extra time (excluded)
+// Period 4, 11 = extra time second half, penalty shootout — excluded
 export function filterRegularTimeGoals(goals: FifaGoal[]): FifaGoal[] {
   return goals.filter((g) => {
-    // Period 1 and 2 are always regular time
     if (g.Period === 1 || g.Period === 2) return true
-    // Period 5 = stoppage time in FIFA API (90'+X or 45'+X)
-    if (g.Period === 5) return true
-    // Period 3, 4 = extra time - excluded
+    if (g.Period === 3) return true  // First-half stoppage time
+    if (g.Period === 5) return true  // Second-half stoppage time
     return false
   })
 }

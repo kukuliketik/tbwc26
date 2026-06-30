@@ -132,7 +132,7 @@ async function settleAuditLogs(userId: string) {
 
     // For knockout matches, fetch detail for 90-min scores and scorers
     let matchDetail = null
-    if (isKnockout && homeTeamId && awayTeamId) {
+    if (homeTeamId && awayTeamId) {
       try {
         matchDetail = await getMatchDetail(fifa.IdMatch)
       } catch {}

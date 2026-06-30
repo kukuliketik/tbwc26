@@ -110,7 +110,7 @@ async function settleAuditLogsForUser(userId: string, fifaByMatchNum: Map<number
     const teamBName = getAwayTeam(fifa)
 
     let matchDetail = null
-    if (isKnockout && homeTeamId && awayTeamId) {
+    if (homeTeamId && awayTeamId) {
       try {
         matchDetail = await getMatchDetail(fifa.IdMatch)
       } catch {}

@@ -4,8 +4,6 @@ import { getAllMatches, getMatchDetail, getTeamForm, getTeamSquad, parseScorers,
 
 export const dynamic = 'force-dynamic'
 
-const KNOCKOUT_ROUNDS = new Set(['Round of 32', 'Round of 16', 'Quarterfinal', 'Semifinal', 'Third Place', 'Final'])
-
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const matchId = parseInt(id)
@@ -60,12 +58,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       if (detail) {
         const detailHomePlayers = detail.HomeTeam?.Players ?? []
         const detailAwayPlayers = detail.AwayTeam?.Players ?? []
-        // For finished knockout matches, use only 90-min goals; for live/all others use all goals
-        const isKnockoutMatch = KNOCKOUT_ROUNDS.has(getRound(fifaMatch))
+        // For finished matches, use only 90-min goals; for live/all others use all goals
         const isFinishedMatch = isFinished(fifaMatch)
-        const use90Min = isKnockoutMatch && isFinishedMatch
-        const homeGoals = use90Min ? filterRegularTimeGoals(detail.HomeTeam?.Goals ?? []) : (detail.HomeTeam?.Goals ?? [])
-        const awayGoals = use90Min ? filterRegularTimeGoals(detail.AwayTeam?.Goals ?? []) : (detail.AwayTeam?.Goals ?? [])
+        const homeGoals = isFinishedMatch ? filterRegularTimeGoals(detail.HomeTeam?.Goals ?? []) : (detail.HomeTeam?.Goals ?? [])
+        const awayGoals = isFinishedMatch ? filterRegularTimeGoals(detail.AwayTeam?.Goals ?? []) : (detail.AwayTeam?.Goals ?? [])
         homeScorers = parseScorers(homeGoals, detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
         awayScorers = parseScorers(awayGoals, detailHomePlayers, detailAwayPlayers, homeTeamId, awayTeamId)
         homeScorerIds = parseScorerIds(homeGoals)
@@ -86,12 +82,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const homeTeam = fifaMatch ? getHomeTeam(fifaMatch) : match?.teamA ?? 'TBD'
   const awayTeam = fifaMatch ? getAwayTeam(fifaMatch) : match?.teamB ?? 'TBD'
 
-  // Use full-time scores for live matches, 90-min scores for finished knockout matches
-  const roundStr = fifaMatch ? getRound(fifaMatch) : match?.round ?? ''
-  const isKnockout = KNOCKOUT_ROUNDS.has(roundStr)
+  // Use 90-min scores for all finished matches to match prediction rules
   let homeScore = fifaMatch ? getHomeScore(fifaMatch) : 0
   let awayScore = fifaMatch ? getAwayScore(fifaMatch) : 0
-  if (matchDetail && isKnockout && isFinished(fifaMatch!)) {
+  if (matchDetail && isFinished(fifaMatch!)) {
     const score90 = get90MinScore(matchDetail)
     homeScore = score90.home
     awayScore = score90.away
