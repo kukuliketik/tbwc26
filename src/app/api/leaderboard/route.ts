@@ -65,6 +65,24 @@ async function settleAuditLogsForUser(userId: string, fifaByMatchNum: Map<number
     })
   }
 
+  // Cleanup: remove stale scorer/score logs for finished knockout matches
+  // so they get re-generated with current FIFA data (e.g. Period 3 goals fix)
+  const finishedKnockoutMatchIds = user.predictions
+    .filter((p) => {
+      const fifa = fifaByMatchNum.get(p.matchId)
+      return KNOCKOUT_ROUNDS.has(p.match.round) && fifa ? isFinished(fifa) : false
+    })
+    .map((p) => p.matchId)
+  if (finishedKnockoutMatchIds.length > 0) {
+    await prisma.pointAuditLog.deleteMany({
+      where: {
+        userId,
+        matchId: { in: finishedKnockoutMatchIds },
+        category: { in: ['score', 'scorer'] },
+      },
+    })
+  }
+
   const needsSettling = user.predictions.filter((pred) => {
     const result = pred.match.result
     const fifa = fifaByMatchNum.get(pred.matchId)
