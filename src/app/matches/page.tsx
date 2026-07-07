@@ -88,6 +88,7 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([])
   const [loading, setLoading] = useState(true)
   const [activeRound, setActiveRound] = useState('Round of 32')
+  const [userSelectedRound, setUserSelectedRound] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -99,6 +100,26 @@ export default function MatchesPage() {
     }
     load()
   }, [])
+
+  useEffect(() => {
+    if (loading || userSelectedRound) return
+    const allSorted = [...matches].sort((a, b) => {
+      const dateA = a.live?.localDate
+        ? parseWC26Date(a.live.localDate, a.live.stadiumId)
+        : parseMatchDate(a.date)
+      const dateB = b.live?.localDate
+        ? parseWC26Date(b.live.localDate, b.live.stadiumId)
+        : parseMatchDate(b.date)
+      return dateA.getTime() - dateB.getTime()
+    })
+    const nextMatch = allSorted.find((m) => {
+      const status = getMatchStatus(m)
+      return !status.isFinished
+    })
+    if (nextMatch && nextMatch.round !== activeRound) {
+      setActiveRound(nextMatch.round)
+    }
+  }, [loading, matches, userSelectedRound])
 
   // Auto-refresh for live matches
   useEffect(() => {
@@ -176,7 +197,7 @@ export default function MatchesPage() {
         {ROUNDS.map((r) => (
           <button
             key={r.key}
-            onClick={() => setActiveRound(r.key)}
+            onClick={() => { setActiveRound(r.key); setUserSelectedRound(true) }}
             className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
               activeRound === r.key
                 ? 'bg-wc-navy text-white shadow-md'
