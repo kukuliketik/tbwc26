@@ -28,7 +28,8 @@ export default function LeaderboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/leaderboard')
+        const res = await fetch('/api/leaderboard', { cache: 'no-store' })
+        if (!res.ok) throw new Error('Failed to load leaderboard')
         setEntries(await res.json())
       } catch {
         addToast('Failed to load leaderboard', 'error')
